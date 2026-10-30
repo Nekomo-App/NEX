@@ -59,8 +59,10 @@ class NekomoAdapter : IntegrationAdapter {
             children += ChildRepo(appId, f, e.name, e.url, e.description)
             when (val r = NexHttp.get(e.url)) {
                 is FetchResult.Ok -> runCatching {
-                    extensions += if (f == RepoFormat.CLOUDSTREAM_REPO) Formats.loadCloudStream(appId, e.url, r.body).extensions
-                    else Formats.parseZangetsu(appId, e.url, r.body).extensions
+                    val child = if (f == RepoFormat.CLOUDSTREAM_REPO) Formats.loadCloudStream(appId, e.url, r.body)
+                    else Formats.parseZangetsu(appId, e.url, r.body)
+                    extensions += child.extensions
+                    warnings += child.warnings.map { w -> "${e.name}: $w" }
                 }.onFailure { warnings += "${e.name}: ${it.message}" }
                 else -> warnings += "${e.name}: ${r.describe()}"
             }

@@ -38,9 +38,21 @@ object NexHttp {
     @Volatile private var client: OkHttpClient? = null
     @Volatile var timeoutSeconds: Long = 30
         set(value) {
-            field = value.coerceIn(5, 120)
-            client = null
+            val v = value.coerceIn(5, 120)
+            if (v == field) return
+            synchronized(this) {
+                field = v
+                client?.cache?.let { runCatching { it.close() } }
+                client = null
+            }
         }
+
+    /** Mirrors Settings → Security. Applies to every request, including URLs taken from manifests. */
+    @Volatile var allowHttp: Boolean = false
+
+    private fun blocked(url: String) = !allowHttp && url.trim().startsWith("http://", ignoreCase = true)
+    private const val HTTP_BLOCKED = "Insecure http:// URL blocked (allow it in Settings → Security)"
+
     var userAgent: String = "NEX"
 
     private lateinit var cacheDir: File
@@ -78,13 +90,29 @@ object NexHttp {
     ): FetchResult = withContext(Dispatchers.IO) {
         val start = System.nanoTime()
         fun elapsed() = (System.nanoTime() - start) / 1_000_000
+        if (blocked(url)) return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed())
         try {
-            val req = Request.Builder().url(url).apply {
-                headers.forEach { (k, v) -> header(k, v) }
+            fun build(u: String, h: Map<String, String>) = Request.Builder().url(u).apply {
+                h.forEach { (k, v) -> header(k, v) }
                 if (preferCache) cacheControl(CacheControl.Builder().maxStale(7, TimeUnit.DAYS).build())
                 if (method == "HEAD") head()
             }.build()
-            client().newCall(req).execute().use { res ->
+            // With credentials, follow redirects by hand so headers never reach another host or a cleartext URL.
+            val base = client()
+            val http = if (headers.isEmpty()) base else base.newBuilder().followRedirects(false).followSslRedirects(false).build()
+            var req = build(url, headers)
+            var res = http.newCall(req).execute()
+            var hops = 0
+            while (headers.isNotEmpty() && res.isRedirect && hops++ < 5) {
+                val next = res.header("Location")?.let { req.url.resolve(it) } ?: break
+                res.close()
+                if (blocked(next.toString())) return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed())
+                val keep = next.host == req.url.host && next.scheme == req.url.scheme
+                req = build(next.toString(), if (keep) headers else emptyMap())
+                res = http.newCall(req).execute()
+            }
+            if (!allowHttp && !res.request.url.isHttps) { res.close(); return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed()) }
+            res.use { res ->
                 if (!res.isSuccessful) return@withContext FetchResult.HttpError(res.code, res.message, elapsed())
                 val body = res.body ?: return@withContext FetchResult.Ok(res.code, ByteArray(0), false, elapsed(), res.request.url.toString())
                 val declared = body.contentLength()
@@ -114,8 +142,10 @@ object NexHttp {
     /** Streams a download to [target], enforcing [maxBytes]. Returns null on success or an error message. */
     suspend fun download(url: String, target: File, maxBytes: Long = MAX_APK_BYTES, onProgress: (Long, Long) -> Unit = { _, _ -> }): String? =
         withContext(Dispatchers.IO) {
+            if (blocked(url)) return@withContext HTTP_BLOCKED
             try {
                 client().newCall(Request.Builder().url(url).cacheControl(CacheControl.FORCE_NETWORK).build()).execute().use { res ->
+                    if (!allowHttp && !res.request.url.isHttps) return@withContext HTTP_BLOCKED
                     if (!res.isSuccessful) return@withContext "HTTP ${res.code} ${res.message}".trim()
                     val body = res.body ?: return@withContext "Empty response"
                     val len = body.contentLength()
@@ -129,7 +159,11 @@ object NexHttp {
                                 val n = input.read(buf)
                                 if (n < 0) break
                                 total += n
-                                if (total > maxBytes) return@withContext "File is too large"
+                                if (total > maxBytes) {
+                                    out.close()
+                                    target.delete()
+                                    return@withContext "File is too large"
+                                }
                                 out.write(buf, 0, n)
                                 onProgress(total, len)
                             }

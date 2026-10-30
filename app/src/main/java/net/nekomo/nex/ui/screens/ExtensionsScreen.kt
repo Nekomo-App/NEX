@@ -55,8 +55,8 @@ import net.nekomo.nex.ui.icon
 private enum class Filter(val label: String) { ALL("All"), INSTALLED("Installed"), UPDATES("Updates"), AVAILABLE("Available"), PROBLEMS("Problems") }
 private enum class Sort(val label: String) { NAME("Name"), APP("App"), LANG("Language") }
 
-fun ExtensionRow.problem(): String? {
-    val c = installed?.compatibility
+fun ExtensionRow.problem(compatWarnings: Boolean = true): String? {
+    val c = installed?.compatibility?.takeIf { compatWarnings }
     return when {
         c == Compatibility.OUTDATED_LIB -> installed?.compatibilityNote ?: "Built for an older extension library"
         c == Compatibility.TOO_NEW -> installed?.compatibilityNote ?: "Needs a newer app version"
@@ -70,6 +70,7 @@ fun ExtensionRow.problem(): String? {
 @Composable
 fun ExtensionsScreen(vm: NexViewModel) {
     val rows by vm.rows.collectAsStateWithLifecycle()
+    val compat = vm.settings.collectAsStateWithLifecycle().value?.compatWarnings ?: true
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(Filter.ALL) }
     var app by rememberSaveable { mutableStateOf<AppId?>(null) }
@@ -84,7 +85,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
                 Filter.INSTALLED -> it.installed != null
                 Filter.UPDATES -> it.hasUpdate
                 Filter.AVAILABLE -> it.installed == null
-                Filter.PROBLEMS -> it.problem() != null
+                Filter.PROBLEMS -> it.problem(compat) != null
             }
         }
         .filter { query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true) || (it.latest?.lang ?: it.installed?.lang).orEmpty().equals(query, true) }
@@ -116,7 +117,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
         }
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(shown, key = { "${it.appId}:${it.id}" }) { r ->
-                val p = r.problem()
+                val p = r.problem(compat)
                 ListRow(
                     title = r.name,
                     subtitle = listOfNotNull(
@@ -129,7 +130,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
                     trailing = {
                         when {
                             r.hasUpdate -> Pill("Update", NexPurpleSoft)
-                            p != null && r.installed?.compatibility in setOf(Compatibility.OUTDATED_LIB, Compatibility.TOO_NEW, Compatibility.BROKEN) -> Pill("Incompatible", NexBad)
+                            compat && p != null && r.installed?.compatibility in setOf(Compatibility.OUTDATED_LIB, Compatibility.TOO_NEW, Compatibility.BROKEN) -> Pill("Incompatible", NexBad)
                             r.installed != null -> Pill("Installed", NexGood)
                             (r.latest?.nsfw == true) -> Pill("18+", NexWarn)
                             else -> Pill(r.latest?.kind?.let { PackageKind.valueOf(it).name } ?: "")
@@ -146,6 +147,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
 @Composable
 private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> Unit) {
     val busy by vm.repo.busy.collectAsStateWithLifecycle()
+    val compat = vm.settings.collectAsStateWithLifecycle().value?.compatWarnings ?: true
     val repos by vm.repositories.collectAsStateWithLifecycle()
     val ad = vm.repo.adapter(r.appId)
     val latest = r.latest
@@ -168,7 +170,7 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
                 latest?.fileSize?.let { Kv("Size", formatBytes(it)) }
                 latest?.sha256?.let { Kv("SHA-256", it) }
                 if (r.offers.isNotEmpty()) Kv("Repositories", r.offers.map { o -> repos.firstOrNull { it.id == o.repoId }?.name ?: "#${o.repoId}" }.distinct().joinToString())
-                r.problem()?.let { Text(it, color = NexWarn) }
+                r.problem(compat)?.let { Text(it, color = NexWarn) }
                 latest?.description?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (!canInstall && kind != PackageKind.APK) Text(ad.limitations.firstOrNull() ?: "Install this from inside ${ad.displayName}.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 if (installing) Text("Downloading and verifying…", color = NexPurpleSoft)

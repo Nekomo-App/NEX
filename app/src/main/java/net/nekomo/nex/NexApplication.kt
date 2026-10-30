@@ -49,6 +49,7 @@ class NexApplication : Application(), Configuration.Provider {
             settings.flow.collect {
                 NexLog.debug = it.debugLogging
                 NexHttp.timeoutSeconds = it.timeoutSeconds.toLong()
+                NexHttp.allowHttp = it.allowHttp
             }
         }
         scope.launch { repo.scanDevice() }

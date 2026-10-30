@@ -37,6 +37,9 @@ object Formats {
 
     // ---------------------------------------------------------------- sniffing
 
+    fun isEmptyArray(body: ByteArray): Boolean =
+        (runCatching { json.parseToJsonElement(body.decodeToString()) }.getOrNull() as? JsonArray)?.isEmpty() == true
+
     fun sniff(body: ByteArray): RepoFormat? {
         val el = runCatching { json.parseToJsonElement(body.decodeToString()) }.getOrNull() ?: return null
         return when (el) {

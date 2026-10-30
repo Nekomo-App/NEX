@@ -51,6 +51,9 @@ interface ExtensionDao {
     @Query("SELECT * FROM extensions WHERE repoId = :repoId ORDER BY name COLLATE NOCASE")
     fun observeForRepo(repoId: Long): Flow<List<ExtensionEntity>>
 
+    @Query("SELECT COUNT(*) FROM extensions WHERE repoId = :repoId")
+    suspend fun countForRepo(repoId: Long): Int
+
     @Query("DELETE FROM extensions WHERE repoId = :repoId")
     suspend fun deleteForRepo(repoId: Long)
 

@@ -1,7 +1,6 @@
 package net.nekomo.nex.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,6 +89,7 @@ fun NexApp(vm: NexViewModel, tv: Boolean, pendingRepoUrl: MutableState<String?>,
             LegalGate { vm.updateSettings { it.copy(legalAckVersion = LEGAL_VERSION) } }
             return@CompositionLocalProvider
         }
+        NotificationPermissionPrompt(s.notifications) { granted -> if (!granted) vm.updateSettings { it.copy(notifications = false) } }
         pendingRepoUrl.value?.let { url -> AddRepoDialog(vm, initialUrl = url, onDismiss = { pendingRepoUrl.value = null }) }
 
         val content: @Composable (Modifier) -> Unit = { m ->
@@ -139,9 +139,22 @@ private fun TabIcon(t: Tab, badge: Int) {
     if (badge > 0) BadgedBox(badge = { Badge { Text("$badge") } }) { Icon(t.icon, null) } else Icon(t.icon, null)
 }
 
+/** Notifications default to on, so Android 13+ needs the runtime permission asked once after the legal gate. */
+@Composable
+private fun NotificationPermissionPrompt(enabled: Boolean, onResult: (Boolean) -> Unit) {
+    if (android.os.Build.VERSION.SDK_INT < 33) return
+    val context = LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission(), onResult)
+    LaunchedEffect(enabled) {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (enabled && !granted) launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
+
 @Composable
 private fun LegalGate(onAccept: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Column(Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.heightIn(min = 24.dp))
         Image(painterResource(R.drawable.nex_logo), "NEX logo", Modifier.size(96.dp))
         Spacer(Modifier.heightIn(min = 16.dp))
@@ -151,6 +164,7 @@ private fun LegalGate(onAccept: () -> Unit) {
         Spacer(Modifier.heightIn(min = 20.dp))
         Button(onClick = onAccept, modifier = Modifier.fillMaxWidth()) { Text("I understand and agree") }
         Spacer(Modifier.width(1.dp).heightIn(min = 24.dp))
+    }
     }
 }
 

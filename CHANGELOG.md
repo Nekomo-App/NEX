@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1-alpha
+- "Install in <app>" on extensions NEX can't install itself (CloudStream plugins, Nekomo/Zangetsu JS sources): opens the app's own add-repository screen for the repo offering the latest version, or copies the URL and opens the app when it has no link.
+- "Open <app>" on extension and repository details; "Open in <app>" on APIs copies the endpoint and opens the app.
+- API keys follow redirects only within the same https host and port and under the API's path.
+
 ## 0.1.0-alpha
 - First working build, based on the NEX Android starter: Home, Extensions, Sources, Updates and Settings.
 - Adapters for Nekomo, Mihon, Aniyomi, CloudStream and Zangetsu.

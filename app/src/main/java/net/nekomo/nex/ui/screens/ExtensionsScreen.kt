@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.nekomo.nex.data.AppId
@@ -37,6 +38,7 @@ import net.nekomo.nex.data.Compatibility
 import net.nekomo.nex.data.ExtensionRow
 import net.nekomo.nex.data.PackageKind
 import net.nekomo.nex.integrations.Capability
+import net.nekomo.nex.integrations.RepoHandoff
 import net.nekomo.nex.pkg.InstallOutcome
 import net.nekomo.nex.pkg.Packages
 import net.nekomo.nex.ui.EmptyState
@@ -154,6 +156,11 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
     val kind = latest?.kind?.let { PackageKind.valueOf(it) } ?: r.installed?.kind ?: PackageKind.APK
     val canInstall = kind == PackageKind.APK && ad.has(Capability.INSTALL_EXTENSIONS) && latest?.downloadUrl != null
     val installing = latest != null && "install:${latest.extId}" in busy
+    val context = LocalContext.current
+    val launchApp = remember(r.appId) { ad.launchIntent(context) }
+    // Extensions NEX can't install itself (.cs3 plugins, JS sources) are installed in the target app from the repository they came from.
+    val repoUrl = (listOfNotNull(latest) + r.offers).firstNotNullOfOrNull { o -> repos.firstOrNull { it.id == o.repoId && it.appId == r.appId.name }?.url }
+    var handoffNote by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { ExtIcon(latest?.iconUrl, r.appId.icon(), 48) },
@@ -174,10 +181,23 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
                 latest?.description?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (!canInstall && kind != PackageKind.APK) Text(ad.limitations.firstOrNull() ?: "Install this from inside ${ad.displayName}.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 if (installing) Text("Downloading and verifying…", color = NexPurpleSoft)
+                handoffNote?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton = {
-            Row {
+            Row(Modifier.horizontalScroll(rs())) {
+                if (!canInstall && repoUrl != null && ad.isInstalled(context)) {
+                    TextButton(onClick = {
+                        when (val h = ad.repoHandoff(context, repoUrl)) {
+                            is RepoHandoff.OpenIntent -> vm.intents.tryEmit(h.intent)
+                            is RepoHandoff.CopyOrShare -> {
+                                copy(context, h.text)
+                                handoffNote = "Repository URL copied. ${h.instructions}"
+                                launchApp?.let { vm.intents.tryEmit(it) }
+                            }
+                        }
+                    }) { Text("Install in ${ad.displayName}") }
+                }
                 if (canInstall && latest != null && (r.installed == null || r.hasUpdate)) {
                     TextButton(enabled = !installing, onClick = {
                         vm.launch {
@@ -191,6 +211,7 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
                     TextButton(onClick = { vm.intents.tryEmit(Packages.uninstallIntent(r.id)); vm.launch { vm.repo.recordUninstall(r) } }) { Text("Uninstall") }
                     TextButton(onClick = { vm.intents.tryEmit(Packages.appDetailsIntent(r.id)) }) { Text("App info") }
                 }
+                if (launchApp != null) TextButton(onClick = { vm.intents.tryEmit(launchApp) }) { Text("Open ${ad.displayName}") }
                 if (!canInstall && latest?.homepage != null) TextButton(onClick = { vm.intents.tryEmit(Intent(Intent.ACTION_VIEW, Uri.parse(latest.homepage))) }) { Text("Website") }
             }
         },

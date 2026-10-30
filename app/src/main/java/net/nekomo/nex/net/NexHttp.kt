@@ -42,7 +42,6 @@ object NexHttp {
             if (v == field) return
             synchronized(this) {
                 field = v
-                client?.cache?.let { runCatching { it.close() } }
                 client = null
             }
         }
@@ -57,6 +56,9 @@ object NexHttp {
 
     private lateinit var cacheDir: File
 
+    /** One Cache per process: replacement clients (after a timeout change) share it, so it's never closed under active calls. */
+    private val cache: Cache? by lazy { if (::cacheDir.isInitialized) Cache(cacheDir, 20L * 1024 * 1024) else null }
+
     fun init(context: Context, userAgent: String) {
         cacheDir = File(context.cacheDir, "http")
         this.userAgent = userAgent
@@ -68,8 +70,10 @@ object NexHttp {
             .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .callTimeout(timeoutSeconds * 4, TimeUnit.SECONDS)
             .followRedirects(true)
-            .apply { if (::cacheDir.isInitialized) cache(Cache(cacheDir, 20L * 1024 * 1024)) }
+            .apply { cache?.let { cache(it) } }
             .addNetworkInterceptor { chain ->
+                // Runs for every hop, so a redirect to http:// is refused before the cleartext request is sent.
+                if (blocked(chain.request().url.toString())) throw IOException(HTTP_BLOCKED)
                 chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build())
             }
             .build().also { client = it }
@@ -91,6 +95,8 @@ object NexHttp {
         val start = System.nanoTime()
         fun elapsed() = (System.nanoTime() - start) / 1_000_000
         if (blocked(url)) return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed())
+        if (headers.isNotEmpty() && !url.trim().startsWith("https://", ignoreCase = true))
+            return@withContext FetchResult.NetworkError("Credentials are only sent over https://", elapsed())
         try {
             fun build(u: String, h: Map<String, String>) = Request.Builder().url(u).apply {
                 h.forEach { (k, v) -> header(k, v) }
@@ -107,8 +113,8 @@ object NexHttp {
                 val next = res.header("Location")?.let { req.url.resolve(it) } ?: break
                 res.close()
                 if (blocked(next.toString())) return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed())
-                val keep = next.host == req.url.host && next.scheme == req.url.scheme
-                req = build(next.toString(), if (keep) headers else emptyMap())
+                // Credentials never follow a redirect, even on the same host.
+                req = build(next.toString(), emptyMap())
                 res = http.newCall(req).execute()
             }
             if (!allowHttp && !res.request.url.isHttps) { res.close(); return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed()) }

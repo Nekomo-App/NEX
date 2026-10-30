@@ -242,13 +242,15 @@ fun copy(context: Context, text: String) {
 /** A Nekomo manifest is stored as one repository whose items come from the repositories it links to. */
 @Composable
 private fun LinkedRepos(vm: NexViewModel, r: RepositoryEntity) {
-    var children by remember { mutableStateOf<List<net.nekomo.nex.data.ChildRepo>?>(null) }
+    var result by remember { mutableStateOf<Result<List<net.nekomo.nex.data.ChildRepo>>?>(null) }
     androidx.compose.runtime.LaunchedEffect(r.url) {
-        children = vm.repo.preview(r.url, AppId.NEKOMO).getOrNull()?.index?.children.orEmpty()
+        result = vm.repo.preview(r.url, AppId.NEKOMO).map { it.index.children }
     }
-    val c = children
+    val res = result
+    val c = res?.getOrNull()
     Kv("Linked repositories", when {
-        c == null -> "Loading…"
+        res == null -> "Loading…"
+        c == null -> "Couldn't load the manifest: ${res.exceptionOrNull()?.message ?: "unknown error"}"
         c.isEmpty() -> "None"
         else -> c.joinToString("\n") { "${it.name} (${it.format.label.substringBefore(' ')}) — ${it.url}" }
     })

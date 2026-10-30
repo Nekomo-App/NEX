@@ -7,6 +7,7 @@ import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -113,8 +114,10 @@ object NexHttp {
                 val next = res.header("Location")?.let { req.url.resolve(it) } ?: break
                 res.close()
                 if (blocked(next.toString())) return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed())
-                // Credentials never follow a redirect, even on the same host.
-                req = build(next.toString(), emptyMap())
+                // Credentials follow only redirects within the same https origin and under the original path's directory.
+                val dir = url.toHttpUrlOrNull()?.encodedPath?.substringBeforeLast('/')?.plus("/") ?: "/"
+                val keep = next.isHttps && next.host == req.url.host && next.port == req.url.port && next.encodedPath.startsWith(dir)
+                req = build(next.toString(), if (keep && req.headers.size > 0) headers else emptyMap())
                 res = http.newCall(req).execute()
             }
             if (!allowHttp && !res.request.url.isHttps) { res.close(); return@withContext FetchResult.NetworkError(HTTP_BLOCKED, elapsed()) }

@@ -147,6 +147,8 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         }
         if (res !is FetchResult.Ok) return@withContext Result.failure(RepoFormatException("Couldn't reach the repository: ${res.describe()}"))
         val format = Formats.sniff(res.body)
+            ?: appId?.let { a -> adapter(a).repoFormats.firstOrNull { it == RepoFormat.TACHIYOMI_INDEX || it == RepoFormat.ANIYOMI_INDEX } }
+                ?.takeIf { Formats.isEmptyArray(res.body) }
             ?: return@withContext Result.failure(RepoFormatException("Unrecognised repository format. Supported: ${RepoFormat.entries.joinToString { it.label }}"))
         val app = appId ?: Formats.defaultApp(format)
         val ad = adapter(app)
@@ -189,8 +191,13 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
     private suspend fun importManifestApis(index: RepoIndex, repoId: Long) {
         if (index.apis.isEmpty()) return
         val have = db.apis().all()
+        val allowHttp = settings.current().allowHttp
         for (a in index.apis) {
             val url = a.url ?: continue
+            if (Urls.validate(url, allowHttp) !is Urls.Validation.Valid) {
+                log("api", "Skipped ${a.name} from manifest", "Endpoint is not an allowed https:// URL", ok = false)
+                continue
+            }
             if (have.any { it.baseUrl.trimEnd('/') == url.trimEnd('/') }) continue
             db.apis().insert(ApiEntity(name = a.name, category = ApiCategory.METADATA, appId = AppId.NEKOMO.name, baseUrl = url, notes = a.description, origin = "repo:$repoId"))
         }
@@ -232,7 +239,11 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         }
     }
 
-    suspend fun setEnabled(repo: RepositoryEntity, enabled: Boolean) = db.repositories().update(repo.copy(enabled = enabled))
+    suspend fun setEnabled(repo: RepositoryEntity, enabled: Boolean) {
+        val updated = repo.copy(enabled = enabled)
+        db.repositories().update(updated)
+        if (enabled && db.extensions().countForRepo(repo.id) == 0) refresh(updated)
+    }
     suspend fun setTrusted(repo: RepositoryEntity, trusted: Boolean) {
         db.repositories().update(repo.copy(trusted = trusted))
         log("security", "${repo.name} marked ${if (trusted) "trusted" else "untrusted"}")

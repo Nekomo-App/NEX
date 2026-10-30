@@ -65,7 +65,7 @@ fun UpdatesScreen(vm: NexViewModel) {
                         var ok = 0
                         for (r in installable) {
                             val o = vm.repo.install(r.latest!!) { vm.intents.tryEmit(it) }
-                            if (o is InstallOutcome.NeedsPermission) { vm.intents.tryEmit(o.settingsIntent); break }
+                            if (o is InstallOutcome.NeedsPermission) break
                             if (o == InstallOutcome.Success) ok++
                         }
                         vm.say("Updated $ok of ${installable.size}")
@@ -84,7 +84,6 @@ fun UpdatesScreen(vm: NexViewModel) {
                         TextButton(enabled = "install:${u.app.packageName}" !in busy, onClick = {
                             vm.launch {
                                 val o = vm.repo.installAppUpdate(u) { vm.intents.tryEmit(it) }
-                                if (o is InstallOutcome.NeedsPermission) vm.intents.tryEmit(o.settingsIntent)
                                 vm.say(vm.describe(o, u.app.label))
                             }
                         }) { Text("Update") }

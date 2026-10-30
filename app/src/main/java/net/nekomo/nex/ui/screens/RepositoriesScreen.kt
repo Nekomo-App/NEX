@@ -208,6 +208,7 @@ private fun RepoDetail(vm: NexViewModel, r: RepositoryEntity, onDismiss: () -> U
                 r.latencyMs?.let { Kv("Response time", "$it ms") }
                 r.version?.let { Kv("Version", it) }
                 Kv("Last checked", formatTime(r.lastChecked))
+                if (r.format == net.nekomo.nex.data.RepoFormat.NEKOMO_MANIFEST.name) LinkedRepos(vm, r)
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("Enabled", Modifier.weight(1f)); Switch(r.enabled, { vm.launch { vm.repo.setEnabled(r, it) } }) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("Trusted", Modifier.weight(1f)); Switch(r.trusted, { vm.launch { vm.repo.setTrusted(r, it) } }) }
                 handoff?.let { Text(it.instructions, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
@@ -236,4 +237,20 @@ private fun RepoDetail(vm: NexViewModel, r: RepositoryEntity, onDismiss: () -> U
 
 fun copy(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("NEX", text))
+}
+
+/** A Nekomo manifest is stored as one repository whose items come from the repositories it links to. */
+@Composable
+private fun LinkedRepos(vm: NexViewModel, r: RepositoryEntity) {
+    var children by remember { mutableStateOf<List<net.nekomo.nex.data.ChildRepo>?>(null) }
+    androidx.compose.runtime.LaunchedEffect(r.url) {
+        children = vm.repo.preview(r.url, AppId.NEKOMO).getOrNull()?.index?.children.orEmpty()
+    }
+    val c = children
+    Kv("Linked repositories", when {
+        c == null -> "Loading…"
+        c.isEmpty() -> "None"
+        else -> c.joinToString("\n") { "${it.name} (${it.format.label.substringBefore(' ')}) — ${it.url}" }
+    })
+    Text("Their plugins and sources are listed under this repository and installed from inside Nekomo.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 }

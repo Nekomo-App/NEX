@@ -329,7 +329,7 @@ private fun ApiEditor(vm: NexViewModel, api: ApiEntity, onDismiss: () -> Unit) {
                     val target = app
                     val launchApp = target?.let { remember(it) { vm.repo.adapter(it).launchIntent(context) } }
                     if (target != null && launchApp != null) TextButton(onClick = {
-                        copy(context, api.baseUrl)
+                        copy(context, base.trim())
                         vm.say("Endpoint copied. Paste it in ${target.displayName}")
                         vm.intents.tryEmit(launchApp)
                     }) { Text("Open in ${target.displayName}") }

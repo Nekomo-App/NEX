@@ -159,7 +159,7 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
     val context = LocalContext.current
     val launchApp = remember(r.appId) { ad.launchIntent(context) }
     // Extensions NEX can't install itself (.cs3 plugins, JS sources) are installed in the target app from the repository they came from.
-    val repoUrl = r.offers.firstNotNullOfOrNull { o -> repos.firstOrNull { it.id == o.repoId && it.appId == r.appId.name }?.url }
+    val repoUrl = (listOfNotNull(latest) + r.offers).firstNotNullOfOrNull { o -> repos.firstOrNull { it.id == o.repoId && it.appId == r.appId.name }?.url }
     var handoffNote by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,

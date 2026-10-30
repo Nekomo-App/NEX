@@ -29,6 +29,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="cloudstreamrepo" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nekomo-repo" />
+        </intent>
     </queries>
 
     <application

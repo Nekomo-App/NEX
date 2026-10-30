@@ -1,5 +1,6 @@
 package net.nekomo.nex.ui
 
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -154,7 +155,7 @@ private fun NotificationPermissionPrompt(enabled: Boolean, onResult: (Boolean) -
 @Composable
 private fun LegalGate(onAccept: () -> Unit) {
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-    Column(Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.heightIn(min = 24.dp))
         Image(painterResource(R.drawable.nex_logo), "NEX logo", Modifier.size(96.dp))
         Spacer(Modifier.heightIn(min = 16.dp))

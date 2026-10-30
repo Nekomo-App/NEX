@@ -6,7 +6,7 @@ These notes come from each project's source code, not guesses.
 - Packages: `app.nekomo`, `app.nekomo.tv`, plus `.beta` and `.debug` variants of each.
 - Manifest: `{"nekomoRepository": 1, "repositories": [{type, name, url, description}], "apis": [...]}` where `type` is `cloudstream` or `zangetsu`. The official one is `Nekomo-App/neko-source/repo/index.json`.
 - App updates: `neko-source/apks/latest.json` (builds per flavor/channel, with sha256). Changelogs come from the GitHub releases API.
-- Nekomo has no add-repository intent, so NEX copies or shares the URL. **Proposal:** add `nekomo://add-repo?url=` to Nekomo so NEX (and links) can add repositories directly.
+- Nekomo handles `nekomo-repo://add?url=<repository url>` (login-gated, always shows a confirmation dialog; nothing is added silently). It accepts Nekomo manifests and CloudStream, Zangetsu, Aniyomi and Mihon repository addresses (address only; APK extensions stay manual). Older Nekomo versions get the URL copied.
 
 ## Mihon / Aniyomi
 - Index: `index.min.json` array of `{name, pkg, apk, lang, code, version, nsfw, sources}`. APKs live at `<base>/apk/<apk>` and icons at `<base>/icon/<pkg>.png`.
@@ -19,4 +19,4 @@ These notes come from each project's source code, not guesses.
 
 ## Zangetsu
 - Package `com.spyou.watch_app`. `index.json`: `{name, sources: [{id, name, version, type, lang, file, logo}]}`. Paths are relative to the index.
-- There is no add-repo intent, so NEX copies or shares the URL.
+- Hand-off uses `nekomo-repo://add?url=`; when no Nekomo build handles it the URL is copied instead.

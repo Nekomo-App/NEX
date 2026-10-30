@@ -27,7 +27,7 @@ class NekomoAdapter : IntegrationAdapter {
     override val homepage = "https://nekomoapp.netlify.app"
     override val limitations = listOf(
         "Nekomo installs sources into its own private storage, so NEX can't list or install them in Nekomo directly.",
-        "Nekomo has no add-repository link yet: NEX copies or shares the URL for Settings → Extensions → Extensions manager.",
+        "Repositories are handed to Nekomo with a nekomo-repo://add link; Nekomo asks you to confirm. Older Nekomo versions get the URL copied instead.",
         "NEX checks Nekomo app updates against neko-source apks/latest.json and installs them only after verifying the SHA-256.",
     )
 
@@ -70,9 +70,14 @@ class NekomoAdapter : IntegrationAdapter {
         return RepoIndex(RepoFormat.NEKOMO_MANIFEST, m.name, m.description, m.version.toString(), extensions, children, m.apis, warnings)
     }
 
-    override fun repoHandoff(context: Context, url: String) = RepoHandoff.CopyOrShare(
-        url, "In Nekomo open Settings → Extensions → Extensions manager, paste this URL and confirm.",
-    )
+    /** Nekomo 2.8.1+ handles `nekomo-repo://add?url=`: it opens its confirmation dialog, nothing is added without approval. */
+    override fun repoHandoff(context: Context, url: String): RepoHandoff {
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("nekomo-repo://add?url=" + android.net.Uri.encode(url)))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        return if (intent.resolveActivity(context.packageManager) != null)
+            RepoHandoff.OpenIntent(intent, "Opens Nekomo's Extensions manager, which asks you to confirm before anything is added.")
+        else RepoHandoff.CopyOrShare(url, "Update Nekomo to a version with repository links, or open Settings → Extensions → Extensions manager and paste this URL.")
+    }
 
     companion object {
         const val LATEST_URL = "https://raw.githubusercontent.com/Nekomo-App/neko-source/main/apks/latest.json"

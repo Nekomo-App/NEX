@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Hand-off to Nekomo uses Nekomo's new `nekomo-repo://add?url=` link (confirmation dialog in Nekomo); the URL is copied only for Nekomo versions without it.
+- The first-run legal screen respects the status and navigation bars, so "I understand and agree" is no longer hidden behind the system bar on phones.
+
 ## 0.1.1-alpha
 - "Install in <app>" on extensions NEX can't install itself (CloudStream plugins, Nekomo/Zangetsu JS sources): opens the app's own add-repository screen for the repo offering the latest version, or copies the URL and opens the app when it has no link.
 - "Open <app>" on extension and repository details; "Open in <app>" on APIs copies the endpoint and opens the app.

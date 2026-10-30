@@ -10,7 +10,7 @@ Each app has its own adapter under `app/src/main/java/net/nekomo/nex/integration
 
 | App | Repository format | What NEX does |
 | --- | --- | --- |
-| **Nekomo** (`app.nekomo`, `.tv`, `.beta`, `.debug`) | `nekomoRepository` manifest (`repo/index.json`), plus the CloudStream / Zangetsu / Mihon / Aniyomi formats Nekomo reads | Detects all six packages. Browses and validates manifests and their linked repos, and imports manifest APIs. Checks and installs Nekomo app updates from `apks/latest.json` with SHA-256 verification. Repos are handed over by copy or share, because Nekomo has no add-repo link. |
+| **Nekomo** (`app.nekomo`, `.tv`, `.beta`, `.debug`) | `nekomoRepository` manifest (`repo/index.json`), plus the CloudStream / Zangetsu / Mihon / Aniyomi formats Nekomo reads | Detects all six packages. Browses and validates manifests and their linked repos, and imports manifest APIs. Checks and installs Nekomo app updates from `apks/latest.json` with SHA-256 verification. Repos are handed over with a `nekomo-repo://add?url=` link (Nekomo 2.8.1+), which opens Nekomo's own confirmation dialog; older versions get the URL copied. |
 | **Mihon** | `index.min.json` | Detects installed extensions (`tachiyomi.extension` feature) and checks library compatibility. Installs, updates and uninstalls APKs through the system installer. Adds repos to Mihon with `tachiyomi://add-repo`. |
 | **Aniyomi** | `index.min.json` (anime) | Same as Mihon, using the `tachiyomi.animeextension` feature and `aniyomi://add-repo`. |
 | **CloudStream** | `repo.json` + plugin lists | Browses plugins and tracks versions. Hands the repo to CloudStream with `cloudstreamrepo://`. `.cs3` plugins live in CloudStream's private storage, so NEX can't install them itself. |

@@ -300,6 +300,7 @@ private fun ApiEditor(vm: NexViewModel, api: ApiEntity, onDismiss: () -> Unit) {
     var cat by remember { mutableStateOf(api.category) }
     var app by remember { mutableStateOf(api.appId?.let { AppId.of(it) }) }
     var enabled by remember { mutableStateOf(api.enabled) }
+    val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -322,8 +323,16 @@ private fun ApiEditor(vm: NexViewModel, api: ApiEntity, onDismiss: () -> Unit) {
                     singleLine = true, visualTransformation = PasswordVisualTransformation())
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("Enabled", Modifier.weight(1f)); Switch(enabled, { enabled = it }) }
                 api.lastStatus?.let { Text("Last test: $it", color = if (api.lastOk == true) NexGood else NexWarn, style = MaterialTheme.typography.bodySmall) }
-                if (api.id != 0L) Row {
+                if (api.id != 0L) Row(Modifier.horizontalScroll(rememberScrollState())) {
                     TextButton(onClick = { vm.launch { val r = vm.repo.testApi(api); vm.say("${r.name}: ${r.lastStatus}") } }) { Text("Test") }
+                    // No supported app accepts an API by intent, so copy the endpoint and open the app to paste it.
+                    val target = app
+                    val launchApp = target?.let { remember(it) { vm.repo.adapter(it).launchIntent(context) } }
+                    if (target != null && launchApp != null) TextButton(onClick = {
+                        copy(context, api.baseUrl)
+                        vm.say("Endpoint copied. Paste it in ${target.displayName}")
+                        vm.intents.tryEmit(launchApp)
+                    }) { Text("Open in ${target.displayName}") }
                     TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = NexBad) }
                 }
             }

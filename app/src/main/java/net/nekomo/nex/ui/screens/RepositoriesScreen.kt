@@ -220,6 +220,8 @@ private fun RepoDetail(vm: NexViewModel, r: RepositoryEntity, onDismiss: () -> U
                             is RepoHandoff.CopyOrShare -> { copy(context, h.text); handoff = h; vm.say("Repository URL copied") }
                         }
                     }) { Text("Add to ${app.displayName}") }
+                    val launchApp = app?.let { remember(it) { vm.repo.adapter(it).launchIntent(context) } }
+                    if (app != null && launchApp != null) TextButton(onClick = { vm.intents.tryEmit(launchApp) }) { Text("Open ${app.displayName}") }
                     TextButton(onClick = {
                         vm.intents.tryEmit(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.url), "Share repository"))
                     }) { Text("Share") }

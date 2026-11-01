@@ -30,7 +30,7 @@ Each app has its own adapter under `app/src/main/java/net/nekomo/nex/integration
 - **Sources (repositories)**: add by URL (format and app are detected automatically, CloudStream shortcodes and `nex://add-repo?url=` work too), preview before adding, mark as trusted, enable or disable, rename, refresh, share, hand off to the target app, and spot duplicates and errors.
 - **Updates**: manual and background checks (WorkManager), with configurable interval, Wi-Fi-only and notifications. Supports individual and bulk APK updates, the Nekomo app changelog, and an update history.
 - **APIs & sources**: metadata, streaming and catalog endpoints with backup URLs and health checks. API keys are encrypted with an Android Keystore AES-GCM key and are never put in backups.
-- **Backup and restore**: JSON export of repositories, APIs and settings. Restore also accepts a plain list of URLs.
+- **Backup and restore**: JSON export of repositories, APIs, preferences and the list of installed extensions (restore shows what to reinstall). Optionally include API keys, encrypted with a passphrase you choose (PBKDF2 + AES-256-GCM). Restore keeps what already exists and also accepts a plain list of URLs.
 - **Security**: HTTPS required by default, size limits and timeouts on downloads, and checks of SHA-256, package name, version code, required feature and signature (against the installed APK) before the system installer opens. Optionally blocks untrusted repositories.
 - **Diagnostics**: rolling log file, device and network report, and cache and database sizes.
 - **Android TV**: navigation rail, larger type, D-pad focus rings, a leanback launcher entry and a banner.

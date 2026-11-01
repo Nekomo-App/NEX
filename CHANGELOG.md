@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1-alpha
+- Add repository accepts a repository code as well as a URL. A code can add a repository or open a source or API in Nekomo (Nekomo 2.9.2+).
+- Third-party notices added (docs/THIRD_PARTY.md).
+
 ## 0.2.0-alpha
 - **Built-in updater:** NEX checks its own GitHub releases (pre-releases included while alpha) and installs updates after verifying the SHA-256 from `SHA256SUMS.txt` and the package name. Updates show in Updates, in background checks and in the notification. Debug builds never self-update.
 - **Open in Nekomo:** sources and extensions (CloudStream plugins and Zangetsu scripts) open in Nekomo with `nekomo-repo://source?repo=&id=&type=`, which shows the source and installs it after you confirm. Any repository (Nekomo, CloudStream, Zangetsu, Aniyomi, Mihon) can be sent with "Open in Nekomo" (`nekomo-repo://add?url=`), and Nekomo's built-in metadata APIs open with `nekomo-repo://api?id=`. Needs Nekomo 2.9.2 or newer; older versions get the URL copied. Nekomo never installs APK extensions.

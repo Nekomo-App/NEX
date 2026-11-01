@@ -138,8 +138,8 @@ fun AddRepoDialog(vm: NexViewModel, initialUrl: String?, onDismiss: () -> Unit) 
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val p = preview
                 if (p == null) {
-                    OutlinedTextField(url, { url = it; error = null }, Modifier.fillMaxWidth(), label = { Text("Repository URL") }, singleLine = true,
-                        supportingText = { Text("index.min.json, repo.json, index.json or a Nekomo manifest. CloudStream shortcodes are accepted.") })
+                    OutlinedTextField(url, { url = it; error = null }, Modifier.fillMaxWidth(), label = { Text("Repository URL or code") }, singleLine = true,
+                        supportingText = { Text("index.min.json, repo.json, index.json or a Nekomo manifest, or a repository code.") })
                     Text("App (optional — detected automatically)", style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         FilterChip(app == null, { app = null }, { Text("Auto") })
@@ -165,13 +165,25 @@ fun AddRepoDialog(vm: NexViewModel, initialUrl: String?, onDismiss: () -> Unit) 
             }
         },
         confirmButton = {
+            val ctx = LocalContext.current
             TextButton(enabled = !loading && url.isNotBlank(), onClick = {
                 val p = preview
+                val code = if (p == null) net.nekomo.nex.util.Shortcodes.lookup(url) else null
+                if (code != null && code.kind != "repo") {
+                    // Sources and APIs are opened in Nekomo, which shows them and installs after you confirm
+                    val nek = vm.repo.adapter(AppId.NEKOMO)
+                    val h = if (code.kind == "source") nek.extensionHandoff(ctx, "CS3", code.id.orEmpty(), code.name, code.url.orEmpty()) else nek.apiHandoff(ctx, code.name)
+                    if (h is RepoHandoff.OpenIntent) { vm.intents.tryEmit(h.intent); onDismiss() }
+                    else error = "Install Nekomo 2.9.2 or newer to open this."
+                    return@TextButton
+                }
+                val target = code?.url ?: url
+                if (code != null) url = target
                 loading = true
                 vm.launch {
                     try {
                         if (p == null) {
-                            vm.repo.preview(url, app).onSuccess { preview = it }.onFailure { error = it.message }
+                            vm.repo.preview(target, app).onSuccess { preview = it }.onFailure { error = it.message }
                         } else when (val r = vm.repo.add(p, trusted)) {
                             is AddResult.Added -> {
                                 vm.say("Added ${r.repo.name}" + if (r.warnings.isNotEmpty()) " · ${r.warnings.first()}" else "")

@@ -60,6 +60,8 @@ app/src/main/java/net/nekomo/nex/
 For more detail, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
 ## Legal
+
+Third-party libraries and their licenses: [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).
 NEX is licensed under the [Apache License 2.0](LICENSE). It does not host, distribute or endorse any content. Repositories and extensions come from independent third parties, and you are responsible for what you add. Mihon, Aniyomi, CloudStream and Zangetsu are separate projects that are not affiliated with NEX. Copyright concerns about third-party content go to whoever hosts it. Issues with NEX itself go to [GitHub issues](https://github.com/Nekomo-App/NEX/issues).
 
 ## Links

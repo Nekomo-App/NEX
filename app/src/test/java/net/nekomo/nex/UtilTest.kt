@@ -44,3 +44,15 @@ class SelfUpdateVersionTest {
         org.junit.Assert.assertTrue(v.compare("0.1.1-alpha", "0.2.0-alpha") < 0)
     }
 }
+
+class ShortcodeRegistryTest {
+    @org.junit.Test
+    fun registryMatchesNekomoAndRejectsUnknownCodes() {
+        val sc = net.nekomo.nex.util.Shortcodes
+        org.junit.Assert.assertEquals(10, sc.size)
+        org.junit.Assert.assertEquals("c7d89d5973291b4a5f65ccb23e9083ded998bcf09307de3f574d250437661a19", sc.digest)
+        org.junit.Assert.assertNull(sc.lookup(""))
+        org.junit.Assert.assertNull(sc.lookup("not-a-code"))
+        org.junit.Assert.assertNull(sc.lookup("nekomo"))
+    }
+}

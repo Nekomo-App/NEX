@@ -102,12 +102,16 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     var confirmReset by remember { mutableStateOf(false) }
     var restoreText by remember { mutableStateOf<String?>(null) }
     val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (!ok) vm.say("Notifications are blocked in system settings") }
+    var exportDialog by remember { mutableStateOf(false) }
+    var exportPass by remember { mutableStateOf("") }
+    var pendingPass by remember { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         vm.launch {
-            val text = vm.repo.exportBackup()
+            val text = vm.repo.exportBackup(passphrase = pendingPass)
             withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } }
-            vm.say("Backup saved (API keys are never included)")
+            vm.say(if (pendingPass.isNullOrEmpty()) "Backup saved (no API keys)" else "Backup saved with encrypted API keys")
+            pendingPass = null
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -155,7 +159,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
         item { SectionTitle("Repositories & integrations") }
         item { ListRow("Integrations", "Detected apps, capabilities and known limitations", onClick = { go(Page.INTEGRATIONS) }) }
         item { ListRow("APIs & sources", "Metadata APIs and endpoints, with keys stored in the Android Keystore", onClick = { go(Page.APIS) }) }
-        item { ListRow("Export backup", "Repositories, API settings and preferences as JSON", onClick = { exportLauncher.launch("nex-backup.json") }) }
+        item { ListRow("Export backup", "Repositories, APIs, preferences, extension list and (optionally) encrypted API keys", onClick = { exportPass = ""; exportDialog = true }) }
         item { ListRow("Restore backup", "NEX backup or a plain list of repository URLs", onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) }
 
         item { SectionTitle("Security") }
@@ -199,14 +203,28 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     if (confirmReset) ConfirmDialog("Reset NEX?", "All repositories, API settings, stored keys and history are deleted. Installed extensions are not touched.", "Reset", { confirmReset = false }) {
         vm.launch { vm.repo.resetDatabase(); vm.say("NEX data reset") }
     }
+    if (exportDialog) AlertDialog(
+        onDismissRequest = { exportDialog = false },
+        title = { Text("Export backup") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Saves repositories, APIs, preferences and the list of installed extensions. To include API keys too, choose a passphrase; keys are encrypted with it. Leave it empty to leave keys out.")
+                OutlinedTextField(exportPass, { exportPass = it }, label = { Text("Passphrase (optional)") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+            }
+        },
+        confirmButton = { TextButton(onClick = { pendingPass = exportPass.ifEmpty { null }; exportDialog = false; exportLauncher.launch("nex-backup.json") }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { exportDialog = false }) { Text("Cancel") } },
+    )
     restoreText?.let { text ->
         var withSettings by remember { mutableStateOf(true) }
+        var restorePass by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { restoreText = null },
             title = { Text("Restore backup") },
             text = {
                 Column {
-                    Text("Repositories and APIs that already exist are skipped. API keys must be re-entered.")
+                    Text("Repositories and APIs that already exist are skipped. Extensions are listed so you can reinstall them. If the backup contains API keys, enter its passphrase.")
+                    OutlinedTextField(restorePass, { restorePass = it }, label = { Text("Passphrase (if the backup has API keys)") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                     Row(verticalAlignment = Alignment.CenterVertically) { Text("Also restore preferences", Modifier.weight(1f)); Switch(withSettings, { withSettings = it }) }
                 }
             },
@@ -214,8 +232,10 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
                 TextButton(onClick = {
                     restoreText = null
                     vm.launch {
-                        val r = vm.repo.importBackup(text, withSettings)
-                        vm.say("Restored ${r.repos} repositories, ${r.apis} APIs" + if (r.skipped > 0) " · ${r.skipped} skipped" else "")
+                        val r = vm.repo.importBackup(text, withSettings, restorePass)
+                        vm.say("Restored ${r.repos} repositories, ${r.apis} APIs" + (if (r.keys > 0) ", ${r.keys} keys" else "") + (if (r.skipped > 0) " · ${r.skipped} skipped" else "") +
+                            (if (r.keysLocked) " · API keys NOT restored (wrong or missing passphrase)" else "") +
+                            (if (r.reinstall.isNotEmpty()) " · ${r.reinstall.size} extension(s) to reinstall: ${r.reinstall.take(3).joinToString()}" else ""))
                     }
                 }) { Text("Restore") }
             },

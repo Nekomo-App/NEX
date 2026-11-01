@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.2-alpha
+- **Fuller backup and restore:** a backup now also stores the list of installed extensions (restore shows what to reinstall) and, if you choose a passphrase, your API keys encrypted with it (PBKDF2 + AES-256-GCM). Repositories, APIs and preferences were already included. Existing entries are kept when restoring.
+
 ## 0.2.1-alpha
 - Add repository accepts a repository code as well as a URL. A code can add a repository or open a source or API in Nekomo (Nekomo 2.9.2+).
 - Third-party notices added (docs/THIRD_PARTY.md).

@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import net.nekomo.nex.util.BackupCrypto
 import kotlinx.serialization.builtins.ListSerializer
 import net.nekomo.nex.BuildConfig
 import net.nekomo.nex.data.db.ActivityEntity
@@ -66,13 +67,20 @@ data class BackupApi(
 )
 
 @Serializable
+data class BackupExt(val appId: String, val id: String, val name: String, val versionName: String)
+
+@Serializable
 data class NexBackup(
-    val nexBackup: Int = 1,
+    val nexBackup: Int = 2,
     val appVersion: String = BuildConfig.VERSION_NAME,
     val createdAt: Long = System.currentTimeMillis(),
     val repositories: List<BackupRepo> = emptyList(),
     val apis: List<BackupApi> = emptyList(),
     val settings: Settings? = null,
+    /** Extensions installed when the backup was made. APKs cannot be restored silently, so this becomes a reinstall list. */
+    val extensions: List<BackupExt> = emptyList(),
+    /** API keys, encrypted with the passphrase chosen at export time (absent when no passphrase was given). */
+    val encryptedKeys: String? = null,
 )
 
 sealed interface AddResult {
@@ -470,8 +478,15 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
 
     // ------------------------------------------------------------------ backup / restore
 
-    suspend fun exportBackup(includeSettings: Boolean = true): String {
+    suspend fun exportBackup(includeSettings: Boolean = true, passphrase: String? = null): String {
+        val keys = if (passphrase.isNullOrEmpty()) null else {
+            val map = db.apis().all().mapNotNull { a -> secure.get(SecureStore.apiKeyName(a.id))?.let { "${a.name}|${a.baseUrl}" to it } }.toMap()
+            if (map.isEmpty()) null else BackupCrypto.encrypt(
+                Formats.json.encodeToString(kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()), map), passphrase)
+        }
         val b = NexBackup(
+            extensions = _installed.value.map { BackupExt(it.appId.name, it.id, it.name, it.versionName) },
+            encryptedKeys = keys,
             repositories = db.repositories().all().map { BackupRepo(it.appId, it.url, it.name, it.enabled, it.trusted) },
             apis = db.apis().all().map { BackupApi(it.name, it.category.name, it.appId, it.baseUrl, it.backupUrl, it.testPath, it.keyHeader, it.enabled, it.notes) },
             settings = if (includeSettings) settings.current().copy(lastCheck = 0) else null,
@@ -479,10 +494,10 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         return Formats.json.encodeToString(NexBackup.serializer(), b)
     }
 
-    data class RestoreResult(val repos: Int, val apis: Int, val skipped: Int, val settings: Boolean)
+    data class RestoreResult(val repos: Int, val apis: Int, val skipped: Int, val settings: Boolean, val keys: Int = 0, val keysLocked: Boolean = false, val reinstall: List<String> = emptyList())
 
     /** Restores a NEX backup. Accepts a plain list of URLs (one per line) too. Existing entries are kept. */
-    suspend fun importBackup(text: String, restoreSettings: Boolean): RestoreResult = withContext(Dispatchers.IO) {
+    suspend fun importBackup(text: String, restoreSettings: Boolean, passphrase: String? = null): RestoreResult = withContext(Dispatchers.IO) {
         val t = text.trim()
         if (!t.startsWith("{")) {
             var added = 0
@@ -514,11 +529,22 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
             db.apis().insert(ApiEntity(name = a.name, category = runCatching { ApiCategory.valueOf(a.category) }.getOrDefault(ApiCategory.OTHER), appId = a.appId, baseUrl = a.baseUrl, backupUrl = a.backupUrl, testPath = a.testPath, keyHeader = a.keyHeader, enabled = a.enabled, notes = a.notes))
             apis++
         }
+        var keyCount = 0
+        var keysLocked = false
+        if (b.encryptedKeys != null) {
+            val plain = if (passphrase.isNullOrEmpty()) null else BackupCrypto.decrypt(b.encryptedKeys, passphrase)
+            if (plain == null) keysLocked = true else {
+                val map = runCatching { Formats.json.decodeFromString(kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()), plain) }.getOrDefault(emptyMap())
+                for (a in db.apis().all()) map["${a.name}|${a.baseUrl}"]?.let { secure.put(SecureStore.apiKeyName(a.id), it); keyCount++ }
+            }
+        }
+        val installedNow = _installed.value
+        val reinstall = b.extensions.filter { e -> installedNow.none { it.appId.name == e.appId && it.id == e.id } }.map { "${it.name} (${AppId.of(it.appId)?.displayName ?: it.appId})" }
         val s = b.settings
         if (restoreSettings && s != null) settings.update { cur -> s.copy(legalAckVersion = cur.legalAckVersion, lastCheck = cur.lastCheck) }
-        log("backup", "Restored backup", "$repos repositories, $apis APIs" + if (skipped > 0) ", $skipped already present" else "")
+        log("backup", "Restored backup", "$repos repositories, $apis APIs, $keyCount API keys" + (if (skipped > 0) ", $skipped already present" else "") + (if (reinstall.isNotEmpty()) ". Reinstall: " + reinstall.joinToString() else ""))
         if (repos > 0) refreshAll()
-        RestoreResult(repos, apis, skipped, restoreSettings && s != null)
+        RestoreResult(repos, apis, skipped, restoreSettings && s != null, keyCount, keysLocked, reinstall)
     }
 
     // ------------------------------------------------------------------ maintenance

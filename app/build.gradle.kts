@@ -21,8 +21,8 @@ android {
         applicationId = "net.nekomo.nex"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1-alpha"
+        versionCode = (findProperty("nexVersionCode") as String?)?.toInt() ?: 3
+        versionName = (findProperty("nexVersionName") as String?) ?: "0.2.0-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }

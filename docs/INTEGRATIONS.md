@@ -20,3 +20,8 @@ These notes come from each project's source code, not guesses.
 ## Zangetsu
 - Package `com.spyou.watch_app`. `index.json`: `{name, sources: [{id, name, version, type, lang, file, logo}]}`. Paths are relative to the index.
 - Hand-off uses `nekomo-repo://add?url=`; when no Nekomo build handles it the URL is copied instead.
+
+## Nekomo links (Nekomo 2.9.2+)
+- `nekomo-repo://add?url=<repo>`: confirmation dialog for a Nekomo manifest or a CloudStream/Zangetsu/Aniyomi/Mihon repository address.
+- `nekomo-repo://source?repo=<repo>&id=<id>&type=cloudstream|zangetsu`: shows the source and installs it after confirmation (Aniyomi/Mihon types only save the repository address; APKs are never installed by Nekomo).
+- `nekomo-repo://api?id=anilist|kitsu|jikan|tvmaze|tmdb`: opens that metadata API in Nekomo's Extensions manager.

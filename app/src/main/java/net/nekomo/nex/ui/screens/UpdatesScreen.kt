@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +47,8 @@ fun UpdatesScreen(vm: NexViewModel) {
     val busy by vm.repo.busy.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     var notes by remember { mutableStateOf<AppUpdate?>(null) }
+    val self by vm.repo.selfUpdate.collectAsStateWithLifecycle()
+    var selfNotes by remember { mutableStateOf<net.nekomo.nex.data.SelfUpdate?>(null) }
     val updates = rows.filter { it.hasUpdate }
     val installable = updates.filter { r ->
         r.latest?.kind == PackageKind.APK.name && vm.repo.adapter(r.appId).has(Capability.INSTALL_EXTENSIONS)
@@ -71,6 +74,25 @@ fun UpdatesScreen(vm: NexViewModel) {
                         vm.say("Updated $ok of ${installable.size}")
                     }
                 }) { Text("Update all (${installable.size})") }
+            }
+        }
+        self?.let { u ->
+            item { SectionTitle("NEX") }
+            item {
+                ListRow(
+                    "NEX ${u.version}",
+                    "Installed ${net.nekomo.nex.BuildConfig.VERSION_NAME}" + (u.size?.let { " · ${formatBytes(it)}" } ?: "") + " · tap for changelog",
+                    leading = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.SystemUpdate, null) },
+                    trailing = {
+                        TextButton(enabled = "install:self" !in busy, onClick = {
+                            vm.launch {
+                                val o = vm.repo.installSelfUpdate(u) { vm.intents.tryEmit(it) }
+                                vm.say(vm.describe(o, "NEX"))
+                            }
+                        }) { Text(if ("install:self" in busy) "…" else "Update") }
+                    },
+                    onClick = { selfNotes = u },
+                )
             }
         }
         if (apps.isNotEmpty()) {
@@ -131,6 +153,11 @@ fun UpdatesScreen(vm: NexViewModel) {
                 )
             }
         }
+    }
+    selfNotes?.let { u ->
+        AlertDialog(onDismissRequest = { selfNotes = null }, title = { Text("NEX ${u.version}") },
+            text = { Column { Text(u.notes?.take(4000) ?: "No changelog published.") } },
+            confirmButton = { TextButton(onClick = { selfNotes = null }) { Text("Close") } })
     }
     notes?.let { u ->
         AlertDialog(onDismissRequest = { notes = null }, title = { Text("${u.app.label} ${u.toVersion}") },

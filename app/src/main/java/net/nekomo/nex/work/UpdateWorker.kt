@@ -30,9 +30,10 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val s = app.repo.settings.current()
         return try {
             val sum = app.repo.checkEverything(refreshRepos = s.autoRefreshRepos)
-            val n = sum.extensionUpdates.size + sum.appUpdates.size
+            val self = app.repo.selfUpdate.value
+            val n = sum.extensionUpdates.size + sum.appUpdates.size + (if (self != null) 1 else 0)
             app.repo.log("check", "Background check", "$n updates, ${sum.brokenRepos} unavailable repositories")
-            if (s.notifications && (n > 0 || sum.brokenRepos > 0)) notify(applicationContext, n, sum.brokenRepos, sum.extensionUpdates.take(5).map { it.name } + sum.appUpdates.map { it.app.label })
+            if (s.notifications && (n > 0 || sum.brokenRepos > 0)) notify(applicationContext, n, sum.brokenRepos, sum.extensionUpdates.take(5).map { it.name } + sum.appUpdates.map { it.app.label } + listOfNotNull(self?.let { "NEX ${it.version}" }))
             Result.success()
         } catch (t: Throwable) {
             NexLog.e("UpdateWorker", "check failed", t)

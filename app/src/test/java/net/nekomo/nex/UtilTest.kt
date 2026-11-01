@@ -33,3 +33,14 @@ class UtilTest {
         assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Hashes.sha256(ByteArray(0)))
     }
 }
+
+class SelfUpdateVersionTest {
+    @org.junit.Test
+    fun selfUpdateVersionOrder() {
+        val v = net.nekomo.nex.util.Versions
+        org.junit.Assert.assertTrue(v.compare("v0.2.0-alpha", "0.1.9-alpha") > 0)
+        org.junit.Assert.assertTrue(v.compare("0.2.0-alpha", "0.2.0-alpha") == 0)
+        org.junit.Assert.assertTrue(v.compare("0.10.0-alpha", "0.9.9-alpha") > 0)
+        org.junit.Assert.assertTrue(v.compare("0.1.1-alpha", "0.2.0-alpha") < 0)
+    }
+}

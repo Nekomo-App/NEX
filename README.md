@@ -22,6 +22,9 @@ Each app has its own adapter under `app/src/main/java/net/nekomo/nex/integration
 - Android always asks you to confirm installs and uninstalls. NEX never installs silently.
 
 ## Features
+- **Built-in updater**: checks NEX's own releases and installs updates with SHA-256 and package verification (release builds).
+- **Open in Nekomo**: send any repository, CloudStream plugin, Zangetsu source or built-in metadata API to Nekomo 2.9.2+ (Nekomo asks you to confirm).
+- **Private by default**: screenshots and screen recording are blocked inside NEX.
 - **Home dashboard**: detected apps and versions, counts of installed extensions, updates and repositories, problems, and recent activity.
 - **Extensions**: search, filter (installed, updates, available, problems), app filter, sort. Shows duplicate and incompatible states, and has a detail view with install, update, uninstall and app info.
 - **Sources (repositories)**: add by URL (format and app are detected automatically, CloudStream shortcodes and `nex://add-repo?url=` work too), preview before adding, mark as trusted, enable or disable, rename, refresh, share, hand off to the target app, and spot duplicates and errors.

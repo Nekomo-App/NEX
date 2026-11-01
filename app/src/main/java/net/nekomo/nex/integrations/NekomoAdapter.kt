@@ -70,13 +70,46 @@ class NekomoAdapter : IntegrationAdapter {
         return RepoIndex(RepoFormat.NEKOMO_MANIFEST, m.name, m.description, m.version.toString(), extensions, children, m.apis, warnings)
     }
 
-    /** Nekomo 2.8.1+ handles `nekomo-repo://add?url=`: it opens its confirmation dialog, nothing is added without approval. */
-    override fun repoHandoff(context: Context, url: String): RepoHandoff {
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("nekomo-repo://add?url=" + android.net.Uri.encode(url)))
+    private fun linkHandoff(context: Context, uri: String, opens: String, fallbackUrl: String, fallbackHelp: String): RepoHandoff {
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(uri))
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        return if (intent.resolveActivity(context.packageManager) != null)
-            RepoHandoff.OpenIntent(intent, "Opens Nekomo's Extensions manager, which asks you to confirm before anything is added.")
-        else RepoHandoff.CopyOrShare(url, "Update Nekomo to a version with repository links, or open Settings → Extensions → Extensions manager and paste this URL.")
+        return if (intent.resolveActivity(context.packageManager) != null) RepoHandoff.OpenIntent(intent, opens)
+        else RepoHandoff.CopyOrShare(fallbackUrl, fallbackHelp)
+    }
+
+    /** Nekomo 2.8.1+ handles `nekomo-repo://add?url=`: it opens its confirmation dialog, nothing is added without approval. */
+    override fun repoHandoff(context: Context, url: String): RepoHandoff = linkHandoff(
+        context, "nekomo-repo://add?url=" + android.net.Uri.encode(url),
+        "Opens Nekomo's Extensions manager, which asks you to confirm before anything is added.",
+        url, "Update Nekomo to a version with repository links, or open Settings → Extensions → Extensions manager and paste this URL.",
+    )
+
+    /** Nekomo 2.9.2+ handles `nekomo-repo://source?repo=&id=&type=`: shows the source and installs it after confirmation. */
+    override fun extensionHandoff(context: Context, kind: String?, id: String, name: String, repoUrl: String): RepoHandoff {
+        val type = when (kind) {
+            "CS3" -> "cloudstream"
+            "JS" -> "zangetsu"
+            else -> return repoHandoff(context, repoUrl)
+        }
+        return linkHandoff(
+            context, "nekomo-repo://source?repo=" + android.net.Uri.encode(repoUrl) + "&id=" + android.net.Uri.encode(id) + "&type=" + type,
+            "Opens Nekomo, which shows $name and installs it after you confirm.",
+            repoUrl, "Update Nekomo to 2.9.2 or newer, or add this repository in Nekomo and install $name from there.",
+        )
+    }
+
+    /** Nekomo 2.9.2+ handles `nekomo-repo://api?id=`; only its built-in metadata APIs can be opened. */
+    override fun apiHandoff(context: Context, name: String): RepoHandoff? {
+        val n = name.lowercase()
+        val id = when {
+            "anilist" in n -> "anilist"
+            "kitsu" in n -> "kitsu"
+            "jikan" in n || "myanimelist" in n -> "jikan"
+            "tvmaze" in n -> "tvmaze"
+            "tmdb" in n || "themoviedb" in n -> "tmdb"
+            else -> return null
+        }
+        return linkHandoff(context, "nekomo-repo://api?id=$id", "Opens this API in Nekomo's Extensions manager.", name, "Update Nekomo to 2.9.2 or newer.")
     }
 
     companion object {

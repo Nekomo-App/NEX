@@ -188,7 +188,7 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
             Row(Modifier.horizontalScroll(rs())) {
                 if (!canInstall && repoUrl != null && ad.isInstalled(context)) {
                     TextButton(onClick = {
-                        when (val h = ad.repoHandoff(context, repoUrl)) {
+                        when (val h = latest?.let { ad.extensionHandoff(context, it.kind, it.extId, it.name, repoUrl) } ?: ad.repoHandoff(context, repoUrl)) {
                             is RepoHandoff.OpenIntent -> vm.intents.tryEmit(h.intent)
                             is RepoHandoff.CopyOrShare -> {
                                 copy(context, h.text)

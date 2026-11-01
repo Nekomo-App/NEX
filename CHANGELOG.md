@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
-- Hand-off to Nekomo uses Nekomo's new `nekomo-repo://add?url=` link (confirmation dialog in Nekomo); the URL is copied only for Nekomo versions without it.
-- The first-run legal screen respects the status and navigation bars, so "I understand and agree" is no longer hidden behind the system bar on phones.
+## 0.2.0-alpha
+- **Built-in updater:** NEX checks its own GitHub releases (pre-releases included while alpha) and installs updates after verifying the SHA-256 from `SHA256SUMS.txt` and the package name. Updates show in Updates, in background checks and in the notification. Debug builds never self-update.
+- **Open in Nekomo:** sources and extensions (CloudStream plugins and Zangetsu scripts) open in Nekomo with `nekomo-repo://source?repo=&id=&type=`, which shows the source and installs it after you confirm. Any repository (Nekomo, CloudStream, Zangetsu, Aniyomi, Mihon) can be sent with "Open in Nekomo" (`nekomo-repo://add?url=`), and Nekomo's built-in metadata APIs open with `nekomo-repo://api?id=`. Needs Nekomo 2.9.2 or newer; older versions get the URL copied. Nekomo never installs APK extensions.
+- **No screenshots:** screenshots, screen recording and the recents thumbnail are blocked in NEX (FLAG_SECURE).
+- The first-run legal screen respects the status and navigation bars, so "I understand and agree" is no longer hidden behind the system bar.
+- **New signing key.** 0.2.0-alpha is signed with a new key, so Android will not update 0.1.x over it: uninstall NEX 0.1.x once, then install 0.2.0-alpha. Future updates install in place.
 
 ## 0.1.1-alpha
 - "Install in <app>" on extensions NEX can't install itself (CloudStream plugins, Nekomo/Zangetsu JS sources): opens the app's own add-repository screen for the repo offering the latest version, or copies the URL and opens the app when it has no link.

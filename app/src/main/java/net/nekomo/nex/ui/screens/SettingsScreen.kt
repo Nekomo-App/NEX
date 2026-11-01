@@ -333,6 +333,9 @@ private fun ApiEditor(vm: NexViewModel, api: ApiEntity, onDismiss: () -> Unit) {
                         vm.say("Endpoint copied. Paste it in ${target.displayName}")
                         vm.intents.tryEmit(launchApp)
                     }) { Text("Open in ${target.displayName}") }
+                    val nekApi = remember { vm.repo.adapter(net.nekomo.nex.data.AppId.NEKOMO) }
+                    val nekHandoff = remember(api.name) { if (nekApi.isInstalled(context)) nekApi.apiHandoff(context, api.name) else null }
+                    if (nekHandoff is net.nekomo.nex.integrations.RepoHandoff.OpenIntent) TextButton(onClick = { vm.intents.tryEmit(nekHandoff.intent) }) { Text("Open in Nekomo") }
                     TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = NexBad) }
                 }
             }

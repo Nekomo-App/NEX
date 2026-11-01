@@ -52,6 +52,8 @@ data class ExtensionRow(
     val duplicateRepos: Boolean get() = offers.map { it.repoId }.distinct().size > 1
 }
 
+data class SelfUpdate(val version: String, val apkUrl: String, val sha256: String?, val size: Long?, val notes: String?)
+
 data class AppUpdate(val app: AppInstall, val toVersion: String, val toCode: Long, val apkUrl: String, val sha256: String?, val size: Long?, val notes: String?)
 
 @Serializable
@@ -318,6 +320,52 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
     suspend fun clearHistory() = db.history().clear()
     suspend fun clearActivity() = db.activity().clear()
 
+    // ------------------------------------------------------------------ NEX self-update
+
+    @Serializable private data class GhAsset(val name: String, val browser_download_url: String, val size: Long = 0)
+    @Serializable private data class GhRel(val tag_name: String? = null, val body: String? = null, val draft: Boolean = false, val prerelease: Boolean = false, val assets: List<GhAsset> = emptyList())
+
+    private val _selfUpdate = MutableStateFlow<SelfUpdate?>(null)
+    val selfUpdate: StateFlow<SelfUpdate?> = _selfUpdate.asStateFlow()
+    private val selfReleasesUrl = "https://api.github.com/repos/Nekomo-App/NEX/releases?per_page=10"
+
+    /** Looks for a newer NEX release (pre-releases count while NEX is alpha). Debug builds have another package id, so they never self-update. */
+    suspend fun checkSelfUpdate(): SelfUpdate? = withContext(Dispatchers.IO) {
+        if (BuildConfig.DEBUG) return@withContext null.also { _selfUpdate.value = null }
+        val res = NexHttp.get(selfReleasesUrl, headers = mapOf("Accept" to "application/vnd.github+json")) as? FetchResult.Ok
+        if (res == null) {
+            log("update", "Couldn't check for NEX updates", "Network error", ok = false)
+            return@withContext _selfUpdate.value
+        }
+        val rels = runCatching { Formats.json.decodeFromString(ListSerializer(GhRel.serializer()), res.body.decodeToString()) }.getOrNull()
+            ?: return@withContext _selfUpdate.value
+        val best = rels.filter { !it.draft && it.tag_name != null }.maxWithOrNull { a, b -> net.nekomo.nex.util.Versions.compare(a.tag_name!!, b.tag_name!!) }
+        val u = if (best == null || net.nekomo.nex.util.Versions.compare(best.tag_name!!, BuildConfig.VERSION_NAME) <= 0) null else {
+            val apk = best.assets.firstOrNull { it.name.endsWith(".apk", true) }
+            val sums = best.assets.firstOrNull { it.name.equals("SHA256SUMS.txt", true) }
+            if (apk == null) null else {
+                val sha = (sums?.let { NexHttp.get(it.browser_download_url) } as? FetchResult.Ok)?.body?.decodeToString()?.lineSequence()
+                    ?.map { it.trim().split(Regex("\\s+")) }?.firstOrNull { it.size >= 2 && it.last().trimStart('*') == apk.name }?.first()?.lowercase()
+                SelfUpdate(best.tag_name!!.removePrefix("v"), apk.browser_download_url, sha, apk.size.takeIf { it > 0 }, best.body)
+            }
+        }
+        _selfUpdate.value = u
+        u
+    }
+
+    suspend fun installSelfUpdate(u: SelfUpdate, onPermission: (android.content.Intent) -> Unit = {}): InstallOutcome = busy("install:self") {
+        if (u.sha256 == null) return@busy InstallOutcome.Failure("No checksum published; refusing to install")
+        val file = File(context.cacheDir, "apk/nex-self.apk")
+        NexHttp.download(u.apkUrl, file)?.let { return@busy InstallOutcome.Failure("Download failed: $it") }
+        val r = ApkInstaller.install(context, file, ApkExpectation(context.packageName, null, u.sha256))
+        file.delete()
+        if (r is InstallOutcome.NeedsPermission) onPermission(r.settingsIntent)
+        val ok = r == InstallOutcome.Success
+        db.history().insert(HistoryEntity(appId = "NEX", extId = context.packageName, name = "NEX", action = "update", fromVersion = BuildConfig.VERSION_NAME, toVersion = u.version, ok = ok, message = (r as? InstallOutcome.Failure)?.message))
+        log("update", "${if (ok) "Updated" else "Update failed:"} NEX → ${u.version}", (r as? InstallOutcome.Failure)?.message, ok)
+        r
+    }
+
     // ------------------------------------------------------------------ Nekomo app updates
 
     @Serializable private data class LatestBuild(val file: String, val flavor: String, val channel: String, val size: Long? = null, val sha256: String? = null)
@@ -369,6 +417,7 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         val s = settings.current()
         val rows = rows(installed.value, db.extensions().enabled(), s.showNsfw)
         val apps = checkAppUpdates()
+        runCatching { checkSelfUpdate() }
         settings.update { it.copy(lastCheck = System.currentTimeMillis()) }
         CheckSummary(rows.filter { it.hasUpdate }, apps, repos.count { it.enabled && it.status == RepoStatus.ERROR })
     }

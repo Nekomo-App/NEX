@@ -220,6 +220,13 @@ private fun RepoDetail(vm: NexViewModel, r: RepositoryEntity, onDismiss: () -> U
                             is RepoHandoff.CopyOrShare -> { copy(context, h.text); handoff = h; vm.say("Repository URL copied") }
                         }
                     }) { Text("Add to ${app.displayName}") }
+                    val nek = remember { vm.repo.adapter(net.nekomo.nex.data.AppId.NEKOMO) }
+                    if (app != net.nekomo.nex.data.AppId.NEKOMO && nek.isInstalled(context)) TextButton(onClick = {
+                        when (val h = nek.repoHandoff(context, r.url)) {
+                            is RepoHandoff.OpenIntent -> vm.intents.tryEmit(h.intent)
+                            is RepoHandoff.CopyOrShare -> { copy(context, h.text); vm.say("Repository URL copied") }
+                        }
+                    }) { Text("Open in Nekomo") }
                     val launchApp = app?.let { remember(it) { vm.repo.adapter(it).launchIntent(context) } }
                     if (app != null && launchApp != null) TextButton(onClick = { vm.intents.tryEmit(launchApp) }) { Text("Open ${app.displayName}") }
                     TextButton(onClick = {

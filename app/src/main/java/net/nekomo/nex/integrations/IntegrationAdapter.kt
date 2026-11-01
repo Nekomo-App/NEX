@@ -66,6 +66,12 @@ interface IntegrationAdapter {
 
     fun repoHandoff(context: Context, url: String): RepoHandoff
 
+    /** Hands one extension/source to the app. Defaults to handing over the repository that offers it. */
+    fun extensionHandoff(context: Context, kind: String?, id: String, name: String, repoUrl: String): RepoHandoff = repoHandoff(context, repoUrl)
+
+    /** Opens an API in the app, when the app supports that. */
+    fun apiHandoff(context: Context, name: String): RepoHandoff? = null
+
     fun launchIntent(context: Context): Intent? =
         detect(context).firstOrNull()?.let { context.packageManager.getLaunchIntentForPackage(it.packageName) }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0-alpha
+- **Screen capture setting:** Settings > Screen capture lets you allow screenshots and screen recording again (blocked by default). Opening it needs a multi-step puzzle; changing the app name or icon needs its own puzzle.
+- **Dark purple theme** by default.
+- Screen rotation follows the device auto-rotate setting everywhere.
+
 ## 0.2.3-alpha
 - **Custom app name and icon:** Settings > App name and icon. Pick a name and picture with a live preview, add it to the home screen as a shortcut, and reset to default at any time. It also shows in the long-press shortcut and the recent-apps card. Android TV launchers cannot pin shortcuts, so on TV it applies to the recent-apps card and long-press shortcut only. Separate from Nekomo.
 

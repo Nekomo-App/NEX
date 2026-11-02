@@ -14,11 +14,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import net.nekomo.nex.data.ThemeMode
 
-val NexBg = Color(0xFF101114)
-val NexSurface = Color(0xFF1B1D22)
-val NexSurfaceHigh = Color(0xFF24272E)
-val NexBorder = Color(0xFF30333A)
-val NexMuted = Color(0xFF9A9DA6)
+val NexBg = Color(0xFF120B1E)
+val NexSurface = Color(0xFF1B1230)
+val NexSurfaceHigh = Color(0xFF271A40)
+val NexBorder = Color(0xFF3B2A5E)
+val NexMuted = Color(0xFFA79BC0)
 val NexAccent = Color(0xFFE5E7EB)
 val NexPurple = Color(0xFF8B5CF6)
 val NexPurpleSoft = Color(0xFFB9A2FF)

@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // No screenshots, screen recording or recents thumbnails of NEX
-        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        net.nekomo.nex.util.CapturePolicy.apply(this)
         enableEdgeToEdge()
         handle(intent)
         val tv = isTv(this)
@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        net.nekomo.nex.util.CapturePolicy.apply(this)
         net.nekomo.nex.util.AppIdentity.applyTaskDescription(this)
         vm.rescan()
     }

@@ -56,3 +56,18 @@ class ShortcodeRegistryTest {
         org.junit.Assert.assertNull(sc.lookup("nekomo"))
     }
 }
+
+class PuzzleTest {
+    @org.junit.Test
+    fun everyRoundHasACorrectAnswerAndRejectsWrongOnes() {
+        val p = net.nekomo.nex.util.Puzzle
+        for (kind in net.nekomo.nex.util.Puzzle.Kind.values()) repeat(60) { seed ->
+            val rounds = p.generate(kind, java.util.Random(seed.toLong()))
+            org.junit.Assert.assertEquals(if (kind == net.nekomo.nex.util.Puzzle.Kind.IDENTITY) 4 else 3, rounds.size)
+            rounds.forEach { r ->
+                org.junit.Assert.assertTrue(p.isCorrect(r, "  " + r.answer.uppercase() + " "))
+                org.junit.Assert.assertFalse(p.isCorrect(r, r.answer + "1"))
+            }
+        }
+    }
+}

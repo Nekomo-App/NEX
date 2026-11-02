@@ -105,6 +105,9 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     var confirmReset by remember { mutableStateOf(false) }
     var restoreText by remember { mutableStateOf<String?>(null) }
     var identityDialog by remember { mutableStateOf(false) }
+    var identityGate by remember { mutableStateOf(false) }
+    var captureGate by remember { mutableStateOf(false) }
+    var captureDialog by remember { mutableStateOf(false) }
     val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (!ok) vm.say("Notifications are blocked in system settings") }
     var exportDialog by remember { mutableStateOf(false) }
     var exportPass by remember { mutableStateOf("") }
@@ -126,7 +129,8 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { ScreenIntro("Settings", "NEX ${BuildConfig.VERSION_NAME}") }
 
-        item { ListRow("App name and icon", "Custom name and icon for the launcher shortcut and recent apps", onClick = { identityDialog = true }) }
+        item { ListRow("App name and icon", "Custom name and icon for the launcher shortcut and recent apps (puzzle)", onClick = { if (net.nekomo.nex.util.Puzzle.unlocked(net.nekomo.nex.util.Puzzle.Kind.IDENTITY)) identityDialog = true else identityGate = true }) }
+        item { ListRow("Screen capture", "Screenshots and screen recording are blocked unless you allow them (puzzle)", onClick = { if (net.nekomo.nex.util.Puzzle.unlocked(net.nekomo.nex.util.Puzzle.Kind.CAPTURE)) captureDialog = true else captureGate = true }) }
         item { SectionTitle("General") }
         item {
             Column {
@@ -209,6 +213,26 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
         vm.launch { vm.repo.resetDatabase(); vm.say("NEX data reset") }
     }
     if (identityDialog) IdentityDialog(vm) { identityDialog = false }
+    if (identityGate) PuzzleDialog(net.nekomo.nex.util.Puzzle.Kind.IDENTITY, "App name and icon", onSolved = { identityGate = false; identityDialog = true }, onDismiss = { identityGate = false })
+    if (captureGate) PuzzleDialog(net.nekomo.nex.util.Puzzle.Kind.CAPTURE, "Screen capture", onSolved = { captureGate = false; captureDialog = true }, onDismiss = { captureGate = false })
+    if (captureDialog) {
+        var allowed by remember { mutableStateOf(net.nekomo.nex.util.CapturePolicy.allowed(context)) }
+        AlertDialog(
+            onDismissRequest = { captureDialog = false },
+            title = { Text("Screen capture") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("NEX blocks screenshots, screen recording and the recent-apps preview by default.", style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) { Text("Allow screenshots and screen recording", Modifier.weight(1f)); Switch(allowed, { v ->
+                        allowed = v
+                        net.nekomo.nex.util.CapturePolicy.set(context, v)
+                        (context as? android.app.Activity)?.let { net.nekomo.nex.util.CapturePolicy.apply(it) }
+                    }) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { captureDialog = false }) { Text("Done") } },
+        )
+    }
     if (exportDialog) AlertDialog(
         onDismissRequest = { exportDialog = false },
         title = { Text("Export backup") },

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.3-alpha
+- **Custom app name and icon:** Settings > App name and icon. Pick a name and picture with a live preview, add it to the home screen as a shortcut, and reset to default at any time. It also shows in the long-press shortcut and the recent-apps card. Android TV launchers cannot pin shortcuts, so on TV it applies to the recent-apps card and long-press shortcut only. Separate from Nekomo.
+
 ## 0.2.2-alpha
 - **Fuller backup and restore:** a backup now also stores the list of installed extensions (restore shows what to reinstall) and, if you choose a passphrase, your API keys encrypted with it (PBKDF2 + AES-256-GCM). Repositories, APIs and preferences were already included. Existing entries are kept when restoring.
 

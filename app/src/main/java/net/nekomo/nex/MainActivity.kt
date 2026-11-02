@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        net.nekomo.nex.util.AppIdentity.applyTaskDescription(this)
         vm.rescan()
     }
 

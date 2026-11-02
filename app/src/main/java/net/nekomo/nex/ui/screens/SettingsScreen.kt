@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -101,6 +104,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     var timeout by remember { mutableStateOf(s.timeoutSeconds.toString()) }
     var confirmReset by remember { mutableStateOf(false) }
     var restoreText by remember { mutableStateOf<String?>(null) }
+    var identityDialog by remember { mutableStateOf(false) }
     val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (!ok) vm.say("Notifications are blocked in system settings") }
     var exportDialog by remember { mutableStateOf(false) }
     var exportPass by remember { mutableStateOf("") }
@@ -122,6 +126,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { ScreenIntro("Settings", "NEX ${BuildConfig.VERSION_NAME}") }
 
+        item { ListRow("App name and icon", "Custom name and icon for the launcher shortcut and recent apps", onClick = { identityDialog = true }) }
         item { SectionTitle("General") }
         item {
             Column {
@@ -203,6 +208,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
     if (confirmReset) ConfirmDialog("Reset NEX?", "All repositories, API settings, stored keys and history are deleted. Installed extensions are not touched.", "Reset", { confirmReset = false }) {
         vm.launch { vm.repo.resetDatabase(); vm.say("NEX data reset") }
     }
+    if (identityDialog) IdentityDialog(vm) { identityDialog = false }
     if (exportDialog) AlertDialog(
         onDismissRequest = { exportDialog = false },
         title = { Text("Export backup") },
@@ -417,4 +423,55 @@ private fun LegalPage(onBack: () -> Unit) {
         BackRow("Legal notice", onBack)
         LegalText()
     }
+}
+
+@Composable
+private fun IdentityDialog(vm: NexViewModel, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    var name by remember { mutableStateOf(net.nekomo.nex.util.AppIdentity.name(ctx) ?: "") }
+    var pending by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var tick by remember { mutableStateOf(0) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val b = net.nekomo.nex.util.AppIdentity.load(ctx, uri)
+            if (b != null) pending = b else vm.say("That picture could not be read.")
+        }
+    }
+    val label = name.trim().ifBlank { net.nekomo.nex.util.AppIdentity.defaultName(ctx) }
+    val shown = pending ?: (tick.let { net.nekomo.nex.util.AppIdentity.icon(ctx) }) ?: ctx.packageManager.getApplicationIcon(ctx.packageName).let { it.toBitmap(192, 192) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("App name and icon") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Choose a name and icon for NEX. They are saved on this device and kept across updates. This is separate from Nekomo.", style = MaterialTheme.typography.bodySmall)
+                if (net.nekomo.nex.util.AppIdentity.isTv(ctx) || !net.nekomo.nex.util.AppIdentity.pinSupported(ctx))
+                    Text("Android TV and some launchers cannot add shortcuts to the home screen or change the app tile. Your name and icon still apply in the recent-apps card and as a long-press shortcut where the launcher supports it.", style = MaterialTheme.typography.bodySmall, color = NexWarn)
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.foundation.Image(shown.asImageBitmap(), "Icon preview", Modifier.size(96.dp))
+                    Text(label, maxLines = 1)
+                }
+                OutlinedTextField(name, { name = it.take(40) }, Modifier.fillMaxWidth(), label = { Text("App name") }, singleLine = true)
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    TextButton(onClick = { picker.launch("image/*") }) { Text("Choose picture") }
+                    TextButton(onClick = {
+                        net.nekomo.nex.util.AppIdentity.save(ctx, name, pending); pending = null
+                        vm.say(if (net.nekomo.nex.util.AppIdentity.requestPin(ctx)) "Confirm in the launcher to add the shortcut" else "This launcher cannot add shortcuts; name and icon still apply in recent apps")
+                    }) { Text("Add to home screen") }
+                    TextButton(onClick = {
+                        net.nekomo.nex.util.AppIdentity.reset(ctx); name = ""; pending = null; tick++
+                        vm.say("Back to the original name and icon. Remove any pinned shortcut from your home screen.")
+                    }) { Text("Reset to default", color = NexBad) }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                net.nekomo.nex.util.AppIdentity.save(ctx, name, pending); pending = null; tick++
+                (ctx as? android.app.Activity)?.let { net.nekomo.nex.util.AppIdentity.applyTaskDescription(it) }
+                vm.say("Saved. It shows in recent apps and the long-press shortcut; use Add to home screen to place it.")
+            }) { Text("Apply") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }

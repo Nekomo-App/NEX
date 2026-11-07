@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1-alpha
+- **Developer warning:** NEX is aimed at developers and advanced users, so it now shows a careful-with-settings reminder each time it opens. Settings > "Developer warning on every launch" (on by default) turns it off, and the warning itself has a Dont show again button.
+
 ## 0.3.0-alpha
 - **Screen capture setting:** Settings > Screen capture lets you allow screenshots and screen recording again (blocked by default). Opening it needs a multi-step puzzle; changing the app name or icon needs its own puzzle.
 - **Dark purple theme** by default.

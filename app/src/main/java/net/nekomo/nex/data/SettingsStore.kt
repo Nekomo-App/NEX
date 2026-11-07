@@ -30,6 +30,8 @@ data class Settings(
     val blockUntrusted: Boolean = false,
     val confirmInstalls: Boolean = true,
     val debugLogging: Boolean = false,
+    /** Shows the "built for developers" warning every time NEX opens. On by default. */
+    val devWarning: Boolean = true,
     val timeoutSeconds: Int = 30,
     val legalAckVersion: Int = 0,
     val lastCheck: Long = 0,
@@ -52,6 +54,7 @@ class SettingsStore(private val context: Context) {
         val blockUntrusted = booleanPreferencesKey("block_untrusted")
         val confirm = booleanPreferencesKey("confirm_installs")
         val debug = booleanPreferencesKey("debug_logging")
+        val devWarning = booleanPreferencesKey("dev_warning")
         val timeout = intPreferencesKey("timeout_seconds")
         val legal = intPreferencesKey("legal_ack_version")
         val lastCheck = longPreferencesKey("last_check")
@@ -75,6 +78,7 @@ class SettingsStore(private val context: Context) {
         blockUntrusted = this[K.blockUntrusted] ?: false,
         confirmInstalls = this[K.confirm] ?: true,
         debugLogging = this[K.debug] ?: false,
+        devWarning = this[K.devWarning] ?: true,
         timeoutSeconds = this[K.timeout] ?: 30,
         legalAckVersion = this[K.legal] ?: 0,
         lastCheck = this[K.lastCheck] ?: 0,
@@ -96,6 +100,7 @@ class SettingsStore(private val context: Context) {
             p[K.blockUntrusted] = s.blockUntrusted
             p[K.confirm] = s.confirmInstalls
             p[K.debug] = s.debugLogging
+            p[K.devWarning] = s.devWarning
             p[K.timeout] = s.timeoutSeconds
             p[K.legal] = s.legalAckVersion
             p[K.lastCheck] = s.lastCheck

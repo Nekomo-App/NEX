@@ -186,6 +186,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
             OutlinedTextField(timeout, { v -> timeout = v.filter(Char::isDigit).take(3); timeout.toIntOrNull()?.takeIf { it in 5..120 }?.let { n -> set { it.copy(timeoutSeconds = n) } } },
                 Modifier.fillMaxWidth(), label = { Text("Network timeout (5–120 s)") }, singleLine = true)
         }
+        item { SettingSwitch("Developer warning on every launch", "NEX is built for developers. Show a careful-with-settings reminder each time it opens", s.devWarning) { on -> set { it.copy(devWarning = on) } } }
         item { SettingSwitch("Debug logging", "Write verbose logs (no keys or tokens are logged)", s.debugLogging) { on -> set { it.copy(debugLogging = on) } } }
         item { ListRow("Diagnostics & logs", "Storage use, network state and the NEX log", onClick = { go(Page.DIAGNOSTICS) }) }
         item { ListRow("Clear caches", "Cached indexes and downloaded APKs", onClick = { vm.launch { vm.repo.clearMetadataCache(); vm.say("Caches cleared") } }) }

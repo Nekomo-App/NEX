@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
             val settings by vm.settings.collectAsStateWithLifecycle()
             NexTheme(settings?.theme ?: ThemeMode.DARK, tv) {
                 NexApp(vm, tv, pendingRepoUrl, pendingTab)
+                net.nekomo.nex.ui.DevWarningDialog(enabled = (settings?.devWarning ?: false) && (settings?.legalAckVersion ?: 0) > 0) { vm.updateSettings { it.copy(devWarning = false) } }
             }
         }
     }

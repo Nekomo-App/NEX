@@ -22,6 +22,7 @@ Each app has its own adapter under `app/src/main/java/net/nekomo/nex/integration
 - Android always asks you to confirm installs and uninstalls. NEX never installs silently.
 
 ## Features
+- **Developer warning**: NEX is built for developers; a reminder shows on every launch unless you turn it off in Settings.
 - **Built-in updater**: checks NEX's own releases and installs updates with SHA-256 and package verification (release builds).
 - **Open in Nekomo**: send any repository, CloudStream plugin, Zangetsu source or built-in metadata API to Nekomo 2.9.2+ (Nekomo asks you to confirm).
 - **Private by default**: screenshots and screen recording are blocked inside NEX.

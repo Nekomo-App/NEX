@@ -16,7 +16,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Build APKs
-        run: ./gradlew assembleDebug assembleRelease -PnexVersionName=0.3.2-alpha -PnexVersionCode=9 -x lintVitalRelease
+        run: ./gradlew assembleDebug assembleRelease -PnexVersionName=0.3.3-alpha -PnexVersionCode=10 -x lintVitalRelease
       - uses: actions/upload-artifact@v4
         with:
           name: nex-apks

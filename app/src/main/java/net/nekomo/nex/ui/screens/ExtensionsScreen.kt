@@ -111,6 +111,16 @@ fun ExtensionsScreen(vm: NexViewModel) {
             AppId.entries.forEach { a -> FilterChip(app == a, { app = if (app == a) null else a }, { Text(a.displayName) }) }
             Sort.entries.forEach { o -> FilterChip(sort == o, { sort = o }, { Text("Sort: ${o.label}") }) }
         }
+        val updatable = shown.filter { r ->
+            r.hasUpdate && r.latest?.let { PackageKind.valueOf(it.kind) == PackageKind.APK && it.downloadUrl != null } == true &&
+                vm.repo.adapter(r.appId).has(net.nekomo.nex.integrations.Capability.INSTALL_EXTENSIONS)
+        }
+        if (updatable.isNotEmpty()) {
+            TextButton(onClick = { vm.updateAll(updatable.mapNotNull { it.latest }) },
+                Modifier.padding(horizontal = 16.dp)) {
+                Text("Update all (${updatable.size})")
+            }
+        }
         if (shown.isEmpty()) {
             EmptyState(
                 if (rows.isEmpty()) "No extensions yet" else "Nothing matches",

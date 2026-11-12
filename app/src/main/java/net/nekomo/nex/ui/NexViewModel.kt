@@ -53,23 +53,22 @@ class NexViewModel(app: Application) : AndroidViewModel(app) {
         say(if (n == 0) "Everything is up to date" + (if (s.brokenRepos > 0) " · ${s.brokenRepos} repositories unavailable" else "") else "$n update${if (n == 1) "" else "s"} available")
     }
 
-    /** Installs every updatable extension in parallel (bounded to 4 concurrent downloads;
-     *  the system package installer still queues its own dialogs one at a time). */
+    /** Installs every updatable extension in batches of 4 concurrent downloads;
+     *  the system package installer still queues its own dialogs one at a time. */
     fun updateAll(exts: List<net.nekomo.nex.data.db.ExtensionEntity>) = launch {
         if (exts.isEmpty()) return@launch
         val ok = java.util.concurrent.atomic.AtomicInteger()
         val fail = java.util.concurrent.atomic.AtomicInteger()
-        val sem = kotlinx.coroutines.sync.Semaphore(4)
-        kotlinx.coroutines.coroutineScope {
-            exts.map { ext ->
-                kotlinx.coroutines.async {
-                    sem.withPermit {
+        exts.chunked(4).forEach { batch ->
+            kotlinx.coroutines.coroutineScope {
+                batch.map { ext ->
+                    async {
                         val o = repo.install(ext) { intents.tryEmit(it) }
                         if (o is InstallOutcome.NeedsPermission) intents.tryEmit(o.settingsIntent)
                         if (o == InstallOutcome.Success) ok.incrementAndGet() else fail.incrementAndGet()
                     }
-                }
-            }.forEach { it.await() }
+                }.forEach { it.await() }
+            }
         }
         say("Updated ${ok.get()} extension${if (ok.get() == 1) "" else "s"}" +
             (if (fail.get() > 0) " · ${fail.get()} failed" else ""))

@@ -200,6 +200,7 @@ private fun MainSettings(vm: NexViewModel, s: Settings, go: (Page) -> Unit) {
                 Triple("Report an issue", "GitHub issues", Links.ISSUES),
                 Triple("Nekomo community", "github.com/Nekomo-App", Links.ORG),
                 Triple("Nekomo website", "nekomoapp.netlify.app", Links.NEKOMO_SITE),
+                Triple("Donate", "Support the project — coming soon", "https://nekomoapp.netlify.app/donate.html"),
                 Triple("Developer", "MarshMeadow · github.com/marshmeadow2772", Links.DEV_GITHUB),
                 Triple("Developer website", "marshmeadow.netlify.app", Links.DEV_SITE),
             ),

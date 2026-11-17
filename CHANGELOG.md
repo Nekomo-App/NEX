@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.4-alpha
+- **Launcher icon fixed:** the whole N3KO artwork (ears, sword, tail, box and text) now fits inside the icon instead of being cropped to the cat's face, on a dark purple background instead of white.
+
 ## 0.3.1-alpha
 - **Developer warning:** NEX is aimed at developers and advanced users, so it now shows a careful-with-settings reminder each time it opens. Settings > "Developer warning on every launch" (on by default) turns it off, and the warning itself has a Dont show again button.
 

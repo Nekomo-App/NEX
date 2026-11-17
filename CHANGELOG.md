@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.5-alpha
+
+- Fix restore of API keys (hasKey), concurrent install temp-file collisions, extension-ID path traversal, package-kind compatibility, duplicate permission intents, dead confirm-installs/key-clearing paths, unbounded history table, unsafe enum parsing
+
 ## 0.3.4-alpha
 - **Launcher icon fixed:** the whole N3KO artwork (ears, sword, tail, box and text) now fits inside the icon instead of being cropped to the cat's face, on a dark purple background instead of white.
 

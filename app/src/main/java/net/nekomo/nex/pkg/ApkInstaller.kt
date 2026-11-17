@@ -103,9 +103,15 @@ object ApkInstaller {
             }
             id
         }
-        return deferred.await().also {
+        return try {
+            kotlinx.coroutines.withTimeout(120_000) { deferred.await() }
+                .also { NexLog.i(TAG, "Install ${expect.packageName}: $it") }
+        } catch (t: kotlinx.coroutines.TimeoutCancellationException) {
+            runCatching { context.packageManager.packageInstaller.abandonSession(sessionId) }
+            NexLog.w(TAG, "Install ${expect.packageName}: timed out waiting for the installer")
+            InstallOutcome.Failure("Timed out waiting for the system installer")
+        } finally {
             pending.remove(sessionId)
-            NexLog.i(TAG, "Install ${expect.packageName}: $it")
         }
     }
 

@@ -66,7 +66,6 @@ class NexViewModel(app: Application) : AndroidViewModel(app) {
                 batch.map { ext ->
                     async {
                         val o = repo.install(ext) { intents.tryEmit(it) }
-                        if (o is InstallOutcome.NeedsPermission) intents.tryEmit(o.settingsIntent)
                         if (o == InstallOutcome.Success) ok.incrementAndGet() else fail.incrementAndGet()
                     }
                 }.forEach { it.await() }

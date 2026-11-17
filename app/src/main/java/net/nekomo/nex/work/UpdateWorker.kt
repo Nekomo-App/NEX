@@ -36,6 +36,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             if (s.notifications && (n > 0 || sum.brokenRepos > 0)) notify(applicationContext, n, sum.brokenRepos, sum.extensionUpdates.take(5).map { it.name } + sum.appUpdates.map { it.app.label } + listOfNotNull(self?.let { "NEX ${it.version}" }))
             Result.success()
         } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             NexLog.e("UpdateWorker", "check failed", t)
             Result.retry()
         }

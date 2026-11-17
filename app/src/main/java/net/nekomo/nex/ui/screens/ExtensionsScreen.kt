@@ -90,7 +90,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
                 Filter.PROBLEMS -> it.problem(compat) != null
             }
         }
-        .filter { query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true) || (it.latest?.lang ?: it.installed?.lang).orEmpty().equals(query, true) }
+        .filter { query.isBlank() || it.name.contains(query, true) || it.id.contains(query, true) || (it.latest?.lang ?: it.installed?.lang).orEmpty().contains(query, true) }
         .sortedWith(
             when (sort) {
                 Sort.NAME -> compareBy { it.name.lowercase() }
@@ -112,7 +112,7 @@ fun ExtensionsScreen(vm: NexViewModel) {
             Sort.entries.forEach { o -> FilterChip(sort == o, { sort = o }, { Text("Sort: ${o.label}") }) }
         }
         val updatable = shown.filter { r ->
-            r.hasUpdate && r.latest?.let { PackageKind.valueOf(it.kind) == PackageKind.APK && it.downloadUrl != null } == true &&
+            r.hasUpdate && r.latest?.let { PackageKind.of(it.kind) == PackageKind.APK && it.downloadUrl != null } == true &&
                 vm.repo.adapter(r.appId).has(net.nekomo.nex.integrations.Capability.INSTALL_EXTENSIONS)
         }
         if (updatable.isNotEmpty()) {
@@ -163,7 +163,7 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
     val repos by vm.repositories.collectAsStateWithLifecycle()
     val ad = vm.repo.adapter(r.appId)
     val latest = r.latest
-    val kind = latest?.kind?.let { PackageKind.valueOf(it) } ?: r.installed?.kind ?: PackageKind.APK
+    val kind = latest?.kind?.let { PackageKind.of(it) } ?: r.installed?.kind ?: PackageKind.APK
     val canInstall = kind == PackageKind.APK && ad.has(Capability.INSTALL_EXTENSIONS) && latest?.downloadUrl != null
     val installing = latest != null && "install:${latest.extId}" in busy
     val context = LocalContext.current
@@ -212,7 +212,6 @@ private fun ExtensionDetail(vm: NexViewModel, r: ExtensionRow, onDismiss: () -> 
                     TextButton(enabled = !installing, onClick = {
                         vm.launch {
                             val o = vm.repo.install(latest) { vm.intents.tryEmit(it) }
-                            if (o is InstallOutcome.NeedsPermission) vm.intents.tryEmit(o.settingsIntent)
                             vm.say(vm.describe(o, r.name))
                         }
                     }) { Text(if (r.installed == null) "Install" else "Update") }

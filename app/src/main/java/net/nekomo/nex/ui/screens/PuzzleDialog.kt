@@ -50,6 +50,7 @@ fun PuzzleDialog(kind: Puzzle.Kind, title: String, onSolved: () -> Unit, onDismi
             TextButton(onClick = {
                 if (Puzzle.isCorrect(rounds[index], input)) {
                     input = ""
+                    message = null
                     if (index + 1 >= rounds.size) solved() else index++
                 } else {
                     fails++

@@ -78,6 +78,9 @@ interface HistoryDao {
     @Insert
     suspend fun insert(h: HistoryEntity)
 
+    @Query("DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY time DESC LIMIT 500)")
+    suspend fun trim()
+
     @Query("DELETE FROM history")
     suspend fun clear()
 }

@@ -150,13 +150,21 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         var url = raw
         var res = fetch(url)
         // A bare Mihon/Aniyomi folder URL: try index.min.json when auto-detecting.
-        if (res !is FetchResult.Ok && appId == null && !url.endsWith(".json")) {
+        suspend fun tryTachiyomiFallback(): Boolean {
             val alt = Formats.normalizeTachiyomiUrl(url)
+            if (alt == url) return false
             val r2 = fetch(alt)
-            if (r2 is FetchResult.Ok) { url = alt; res = r2 }
+            if (r2 is FetchResult.Ok) { url = alt; res = r2; return true }
+            return false
         }
+        if (res !is FetchResult.Ok && appId == null && !url.endsWith(".json")) tryTachiyomiFallback()
         if (res !is FetchResult.Ok) return@withContext Result.failure(RepoFormatException("Couldn't reach the repository: ${res.describe()}"))
-        val format = Formats.sniff(res.body)
+        var format = Formats.sniff(res.body)
+        // HTTP-200 but unparseable (e.g. a GitHub HTML page): still try the
+        // index.min.json suffix before declaring the format unrecognised.
+        if (format == null && appId == null && !url.endsWith(".json") && tryTachiyomiFallback())
+            format = Formats.sniff(res.body)
+        format = format
             ?: appId?.let { a -> adapter(a).repoFormats.firstOrNull { it == RepoFormat.TACHIYOMI_INDEX || it == RepoFormat.ANIYOMI_INDEX } }
                 ?.takeIf { Formats.isEmptyArray(res.body) }
             ?: return@withContext Result.failure(RepoFormatException("Unrecognised repository format. Supported: ${RepoFormat.entries.joinToString { it.label }}"))
@@ -185,7 +193,10 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
             statusMessage = p.index.warnings.joinToString("\n").ifBlank { null },
             extensionCount = p.index.extensions.size, latencyMs = p.latencyMs, version = p.index.version,
         )
-        val id = db.repositories().insert(entity)
+        val id = try { db.repositories().insert(entity) }
+        catch (e: android.database.sqlite.SQLiteConstraintException) {
+            return@withContext AddResult.Failed("This repository is already added")
+        }
         db.extensions().replaceForRepo(id, p.index.extensions.map { it.toEntity(id) })
         importManifestApis(p.index, id)
         log("repository", "Added ${entity.name}", "${p.appId.displayName} · ${p.index.extensions.size} entries")
@@ -216,7 +227,7 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
     suspend fun refresh(repo: RepositoryEntity): RepositoryEntity = busy("refresh:${repo.id}") {
         withContext(Dispatchers.IO) {
             val ad = adapter(repo.appId) ?: return@withContext repo
-            val res = NexHttp.get(repo.url)
+            val res = NexHttp.get(repo.url, preferCache = true)
             val updated = when (res) {
                 is FetchResult.Ok -> try {
                     val idx = ad.parseIndex(repo.url, res.body)
@@ -287,7 +298,9 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
     fun duplicateNames(rows: List<ExtensionRow>): Map<String, List<ExtensionRow>> =
         rows.groupBy { it.appId.name + ":" + it.name.lowercase() }.filterValues { list -> list.map { it.id }.distinct().size > 1 }
 
-    suspend fun install(ext: ExtensionEntity, onPermission: (android.content.Intent) -> Unit = {}): InstallOutcome = busy("install:${ext.extId}") {
+    suspend fun install(ext: ExtensionEntity, onPermission: (android.content.Intent) -> Unit = {}): InstallOutcome {
+        if ("install:${ext.extId}" in _busy.value) return InstallOutcome.Failure("${ext.name} is already installing")
+        return busy("install:${ext.extId}") {
         val app = AppId.of(ext.appId) ?: return@busy InstallOutcome.Failure("Unknown app")
         val ad = adapter(app)
         if (!ad.has(Capability.INSTALL_EXTENSIONS)) return@busy InstallOutcome.Failure("${app.displayName} doesn't let other apps install its extensions")
@@ -295,9 +308,18 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         if (settings.current().blockUntrusted && repo?.trusted != true)
             return@busy InstallOutcome.Failure("Installs from untrusted repositories are blocked in Settings → Security")
         val url = ext.downloadUrl ?: return@busy InstallOutcome.Failure("Repository gives no download URL")
+        // Ask for the unknown-apps permission before downloading, not after.
+        if (!ApkInstaller.canInstall(context)) {
+            val intent = ApkInstaller.permissionIntent(context)
+            onPermission(intent)
+            return@busy InstallOutcome.NeedsPermission(intent)
+        }
         val before = installed.value.firstOrNull { it.appId == app && it.id == ext.extId }
         val dir = File(context.cacheDir, "apk").apply { mkdirs() }
-        val file = File(dir, "${ext.extId}.apk")
+        // Sanitize the repo-supplied id (it may contain path separators) and
+        // keep the file unique per attempt — concurrent operations must never
+        // interleave writes into the same APK.
+        val file = File(dir, "${ext.extId.replace(Regex("[^A-Za-z0-9._-]"), "_")}-${System.nanoTime()}.apk")
         NexHttp.download(url, file)?.let { err ->
             record(ext, before, false, "Download failed: $err")
             return@busy InstallOutcome.Failure("Download failed: $err")
@@ -312,16 +334,19 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         }
         scanDevice()
         outcome
+        }
     }
 
     private suspend fun record(ext: ExtensionEntity, before: InstalledExtension?, ok: Boolean, message: String?) {
         val action = if (before == null) "install" else "update"
         db.history().insert(HistoryEntity(appId = ext.appId, extId = ext.extId, name = ext.name, action = action, fromVersion = before?.versionName, toVersion = ext.versionName, ok = ok, message = message))
+        db.history().trim()
         log(action, "${if (ok) "" else "Failed: "}${ext.name} ${ext.versionName}", message, ok)
     }
 
     suspend fun recordUninstall(row: ExtensionRow) {
         db.history().insert(HistoryEntity(appId = row.appId.name, extId = row.id, name = row.name, action = "uninstall", fromVersion = row.installed?.versionName, toVersion = null, ok = true, message = "Uninstall requested"))
+        db.history().trim()
         log("uninstall", "Uninstall requested: ${row.name}")
     }
 
@@ -370,6 +395,7 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         if (r is InstallOutcome.NeedsPermission) onPermission(r.settingsIntent)
         val ok = r == InstallOutcome.Success
         db.history().insert(HistoryEntity(appId = "NEX", extId = context.packageName, name = "NEX", action = "update", fromVersion = BuildConfig.VERSION_NAME, toVersion = u.version, ok = ok, message = (r as? InstallOutcome.Failure)?.message))
+        db.history().trim()
         log("update", "${if (ok) "Updated" else "Update failed:"} NEX → ${u.version}", (r as? InstallOutcome.Failure)?.message, ok)
         r
     }
@@ -410,6 +436,7 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
         if (r is InstallOutcome.NeedsPermission) onPermission(r.settingsIntent)
         val ok = r == InstallOutcome.Success
         db.history().insert(HistoryEntity(appId = u.app.appId.name, extId = u.app.packageName, name = u.app.label, action = "update", fromVersion = u.app.versionName, toVersion = u.toVersion, ok = ok, message = (r as? InstallOutcome.Failure)?.message))
+        db.history().trim()
         log("update", "${if (ok) "Updated" else "Update failed:"} ${u.app.label} → ${u.toVersion}", (r as? InstallOutcome.Failure)?.message, ok)
         scanDevice()
         r
@@ -535,7 +562,11 @@ class NexRepository(private val context: Context, private val db: NexDatabase, v
             val plain = if (passphrase.isNullOrEmpty()) null else BackupCrypto.decrypt(b.encryptedKeys, passphrase)
             if (plain == null) keysLocked = true else {
                 val map = runCatching { Formats.json.decodeFromString(kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()), plain) }.getOrDefault(emptyMap())
-                for (a in db.apis().all()) map["${a.name}|${a.baseUrl}"]?.let { secure.put(SecureStore.apiKeyName(a.id), it); keyCount++ }
+                for (a in db.apis().all()) map["${a.name}|${a.baseUrl}"]?.let {
+                    secure.put(SecureStore.apiKeyName(a.id), it)
+                    db.apis().update(a.copy(hasKey = true))
+                    keyCount++
+                }
             }
         }
         val installedNow = _installed.value

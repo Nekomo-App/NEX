@@ -33,6 +33,12 @@ enum class PackageKind(val label: String) {
     CS3("CloudStream plugin (.cs3)"),
     JS("JavaScript source (.js)"),
     REPOSITORY("Repository reference"),
+    ;
+
+    companion object {
+        /** Safe parse — a corrupted/renamed stored value must not crash the UI. */
+        fun of(name: String?): PackageKind? = entries.firstOrNull { it.name == name }
+    }
 }
 
 enum class Compatibility { COMPATIBLE, OUTDATED_LIB, TOO_NEW, UNKNOWN, BROKEN }

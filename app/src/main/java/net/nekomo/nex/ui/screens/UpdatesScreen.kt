@@ -127,7 +127,6 @@ fun UpdatesScreen(vm: NexViewModel) {
                     if (can) TextButton(enabled = "install:${l.extId}" !in busy, onClick = {
                         vm.launch {
                             val o = vm.repo.install(l) { vm.intents.tryEmit(it) }
-                            if (o is InstallOutcome.NeedsPermission) vm.intents.tryEmit(o.settingsIntent)
                             vm.say(vm.describe(o, r.name))
                         }
                     }) { Text(if ("install:${l.extId}" in busy) "…" else "Update") } else Pill("Manual", NexPurpleSoft)

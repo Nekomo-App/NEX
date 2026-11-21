@@ -68,3 +68,7 @@ NEX is licensed under the [Apache License 2.0](LICENSE). It does not host, distr
 ## Links
 - Nekomo community: https://github.com/Nekomo-App · https://nekomoapp.netlify.app
 - Developer: MarshMeadow, https://github.com/marshmeadow2772 · https://marshmeadow.netlify.app
+
+---
+
+*This project is developed and maintained by [Nekosphere](https://github.com/Nekomo-App) — founded, developed, and led by [N3K0](https://github.com/MarshMeadow).*
